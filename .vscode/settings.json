@@ -1,0 +1,18 @@
+{
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "editor.formatOnSave": true,
+  "editor.tabSize": 2,
+  "editor.wordWrap": "on",
+  "editor.fontSize": 14,
+  "editor.fontFamily": "'Fira Code', Consolas, monospace",
+  "editor.fontLigatures": true,
+  "editor.minimap.enabled": false,
+  "files.eol": "\n",
+  "files.exclude": { "**/.next": true, "**/node_modules": true },
+  "typescript.updateImportsOnFileMove.enabled": "always",
+  "tailwindCSS.experimental.classRegex": [
+    ["cn\\(([^)]*)\\)", "\"([^\"]*)\""]
+  ],
+  "editor.bracketPairColorization.enabled": true,
+  "editor.guides.bracketPairs": "active"
+}

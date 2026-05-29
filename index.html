@@ -1,0 +1,1276 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MandoMood — Học tiếng Trung qua cảm xúc</title>
+  <meta name="description" content="Học tiếng Trung qua câu chuyện, cảm xúc và cuộc sống thật — không nhàm chán, không cứng nhắc. AI cá nhân hóa cho bạn mỗi ngày." />
+  <meta property="og:title" content="MandoMood — Học tiếng Trung qua cảm xúc" />
+  <meta property="og:description" content="Học tiếng Trung như lướt TikTok. Mỗi ngày một câu chuyện, một cảm xúc, một kỷ niệm." />
+  <meta property="og:image" content="https://mandomood.com/og-image.jpg" />
+  <meta name="theme-color" content="#0D0D0D" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Inter:wght@300;400;500;600&family=Noto+Serif+SC:wght@400;700&display=swap" rel="stylesheet" />
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:         #0D0D0D;
+      --surface:    #1A1A1A;
+      --surface2:   #242424;
+      --border:     rgba(255,255,255,0.08);
+      --text:       #F5F0EB;
+      --text-muted: #8A8078;
+      --red:        #E8634A;
+      --red-glow:   rgba(232,99,74,0.25);
+      --gold:       #E8A838;
+      --gold-muted: #8A6120;
+      --cream:      #F5E6C8;  /* logo cream */
+      --beige:      #F5E6C8;
+      --brown:      #5C3D1E;  /* logo brown */
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Inter', sans-serif;
+      font-size: 16px;
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+
+    /* ── NOISE TEXTURE ── */
+    body::before {
+      content: '';
+      position: fixed; inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+      pointer-events: none;
+      z-index: 0;
+      opacity: 0.4;
+    }
+
+    /* ── NAVBAR ── */
+    nav {
+      position: fixed; top: 0; left: 0; right: 0;
+      z-index: 100;
+      padding: 1.25rem 2rem;
+      display: flex; align-items: center; justify-content: space-between;
+      background: rgba(13,13,13,0.7);
+      backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .nav-logo {
+      font-family: 'Playfair Display', serif;
+      font-size: 1.4rem;
+      font-weight: 700;
+      color: var(--text);
+      text-decoration: none;
+      display: flex; align-items: center; gap: 0.5rem;
+    }
+
+    .nav-logo span { color: var(--red); }
+
+    .nav-cta {
+      background: var(--red);
+      color: white;
+      border: none;
+      padding: 0.55rem 1.3rem;
+      border-radius: 100px;
+      font-size: 0.875rem;
+      font-weight: 500;
+      cursor: pointer;
+      text-decoration: none;
+      transition: all 0.2s;
+    }
+    .nav-cta:hover { background: #d43f39; transform: translateY(-1px); }
+
+    /* ── HERO ── */
+    .hero {
+      min-height: 100svh;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      text-align: center;
+      padding: 7rem 1.5rem 5rem;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* Radial glow backgrounds */
+    .hero::after {
+      content: '';
+      position: absolute;
+      width: 600px; height: 600px;
+      background: radial-gradient(ellipse, var(--red-glow) 0%, transparent 70%);
+      top: 50%; left: 50%;
+      transform: translate(-50%, -55%);
+      pointer-events: none;
+    }
+
+    .hero-badge {
+      display: inline-flex; align-items: center; gap: 0.5rem;
+      background: rgba(232,99,74,0.12);
+      border: 1px solid rgba(232,99,74,0.3);
+      padding: 0.35rem 1rem;
+      border-radius: 100px;
+      font-size: 0.8rem;
+      font-weight: 500;
+      color: var(--red);
+      margin-bottom: 2rem;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      position: relative; z-index: 1;
+    }
+
+    .hero-badge-dot {
+      width: 6px; height: 6px;
+      background: var(--red);
+      border-radius: 50%;
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.5; transform: scale(0.8); }
+    }
+
+    .hero h1 {
+      font-family: 'Playfair Display', serif;
+      font-size: clamp(2.4rem, 7vw, 5rem);
+      font-weight: 700;
+      line-height: 1.1;
+      letter-spacing: -0.02em;
+      margin-bottom: 1.5rem;
+      position: relative; z-index: 1;
+    }
+
+    .hero h1 em {
+      font-style: italic;
+      color: var(--red);
+    }
+
+    .hero-chinese {
+      font-family: 'Noto Serif SC', serif;
+      font-size: clamp(1.2rem, 3vw, 1.8rem);
+      color: var(--gold);
+      letter-spacing: 0.15em;
+      margin-bottom: 0.5rem;
+      opacity: 0.9;
+      position: relative; z-index: 1;
+    }
+
+    .hero-pinyin {
+      font-size: 0.9rem;
+      color: var(--text-muted);
+      letter-spacing: 0.08em;
+      margin-bottom: 2rem;
+      position: relative; z-index: 1;
+    }
+
+    .hero-sub {
+      font-size: clamp(1rem, 2.5vw, 1.2rem);
+      color: var(--text-muted);
+      max-width: 520px;
+      margin: 0 auto 3rem;
+      font-weight: 300;
+      line-height: 1.7;
+      position: relative; z-index: 1;
+    }
+
+    /* Waitlist Form */
+    .waitlist-form {
+      display: flex; gap: 0.75rem;
+      max-width: 440px;
+      width: 100%;
+      margin: 0 auto;
+      position: relative; z-index: 1;
+    }
+
+    .waitlist-input {
+      flex: 1;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 100px;
+      padding: 0.85rem 1.5rem;
+      color: var(--text);
+      font-size: 0.95rem;
+      font-family: 'Inter', sans-serif;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    .waitlist-input:focus { border-color: var(--red); }
+    .waitlist-input::placeholder { color: var(--text-muted); }
+
+    .waitlist-btn {
+      background: var(--red);
+      color: white;
+      border: none;
+      padding: 0.85rem 1.75rem;
+      border-radius: 100px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      font-family: 'Inter', sans-serif;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.2s;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .waitlist-btn:hover { background: #d43f39; transform: translateY(-1px); box-shadow: 0 8px 25px var(--red-glow); }
+
+    .waitlist-count {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      margin-top: 1rem;
+      position: relative; z-index: 1;
+    }
+
+    .waitlist-count strong { color: var(--gold); }
+
+    /* Success state */
+    .waitlist-success {
+      display: none;
+      background: rgba(212,175,55,0.1);
+      border: 1px solid rgba(212,175,55,0.3);
+      border-radius: 16px;
+      padding: 1rem 1.5rem;
+      color: var(--gold);
+      font-size: 0.95rem;
+      max-width: 440px;
+      margin: 0 auto;
+      position: relative; z-index: 1;
+    }
+
+    /* ── QUOTE SHOWCASE ── */
+    .quote-section {
+      padding: 5rem 1.5rem;
+      text-align: center;
+      position: relative;
+    }
+
+    .section-label {
+      font-size: 0.75rem;
+      font-weight: 600;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--red);
+      margin-bottom: 1rem;
+    }
+
+    .section-title {
+      font-family: 'Playfair Display', serif;
+      font-size: clamp(1.8rem, 4vw, 2.8rem);
+      font-weight: 700;
+      margin-bottom: 1rem;
+      line-height: 1.2;
+    }
+
+    .section-sub {
+      color: var(--text-muted);
+      font-size: 1rem;
+      max-width: 480px;
+      margin: 0 auto 3.5rem;
+      font-weight: 300;
+    }
+
+    /* Quote Cards Carousel */
+    .quotes-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 1.25rem;
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+
+    .quote-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 2rem 1.75rem;
+      text-align: left;
+      position: relative;
+      overflow: hidden;
+      transition: transform 0.3s, border-color 0.3s;
+      cursor: default;
+    }
+
+    .quote-card:hover {
+      transform: translateY(-4px);
+      border-color: rgba(232,99,74,0.3);
+    }
+
+    .quote-card::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at top right, rgba(232,99,74,0.06) 0%, transparent 60%);
+      pointer-events: none;
+    }
+
+    .quote-mood {
+      font-size: 0.75rem;
+      font-weight: 500;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: 1.25rem;
+      display: flex; align-items: center; gap: 0.5rem;
+    }
+
+    .quote-mood-dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+    }
+
+    .quote-zh {
+      font-family: 'Noto Serif SC', serif;
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: var(--text);
+      line-height: 1.5;
+      margin-bottom: 0.5rem;
+      letter-spacing: 0.05em;
+    }
+
+    .quote-pinyin {
+      font-size: 0.8rem;
+      color: var(--gold-muted);
+      margin-bottom: 0.75rem;
+      letter-spacing: 0.04em;
+    }
+
+    .quote-vn {
+      font-size: 0.95rem;
+      color: var(--text-muted);
+      font-style: italic;
+      font-weight: 300;
+      line-height: 1.5;
+      margin-bottom: 1.5rem;
+    }
+
+    .quote-tags {
+      display: flex; gap: 0.5rem; flex-wrap: wrap;
+    }
+
+    .quote-tag {
+      font-size: 0.72rem;
+      padding: 0.25rem 0.65rem;
+      border-radius: 100px;
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+
+    /* ── HOW IT WORKS ── */
+    .how-section {
+      padding: 5rem 1.5rem;
+      position: relative;
+    }
+
+    .how-section::before {
+      content: '';
+      position: absolute;
+      left: 50%; top: 0;
+      transform: translateX(-50%);
+      width: 1px;
+      height: 100%;
+      background: linear-gradient(to bottom, transparent, var(--border) 20%, var(--border) 80%, transparent);
+    }
+
+    .how-steps {
+      max-width: 720px;
+      margin: 0 auto;
+      display: flex; flex-direction: column;
+      gap: 3rem;
+    }
+
+    .how-step {
+      display: grid;
+      grid-template-columns: 56px 1fr;
+      gap: 1.5rem;
+      align-items: start;
+      position: relative;
+    }
+
+    .how-step-num {
+      width: 56px; height: 56px;
+      border-radius: 50%;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: center;
+      font-family: 'Playfair Display', serif;
+      font-size: 1.3rem;
+      font-weight: 700;
+      color: var(--red);
+      flex-shrink: 0;
+      position: relative;
+      z-index: 1;
+    }
+
+    .how-step-content h3 {
+      font-size: 1.15rem;
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+      margin-top: 0.8rem;
+    }
+
+    .how-step-content p {
+      color: var(--text-muted);
+      font-size: 0.95rem;
+      font-weight: 300;
+      line-height: 1.7;
+    }
+
+    .how-step-tag {
+      display: inline-block;
+      background: rgba(232,99,74,0.1);
+      color: var(--red);
+      font-size: 0.72rem;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      padding: 0.2rem 0.6rem;
+      border-radius: 4px;
+      margin-bottom: 0.4rem;
+    }
+
+    /* ── FEATURES GRID ── */
+    .features-section {
+      padding: 5rem 1.5rem;
+    }
+
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 1.25rem;
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+
+    .feature-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 2rem;
+      transition: all 0.3s;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .feature-card:hover {
+      border-color: rgba(232,99,74,0.3);
+      transform: translateY(-3px);
+    }
+
+    .feature-card.featured {
+      grid-column: span 2;
+      background: linear-gradient(135deg, var(--surface) 0%, rgba(232,99,74,0.05) 100%);
+      border-color: rgba(232,99,74,0.2);
+    }
+
+    @media (max-width: 700px) {
+      .feature-card.featured { grid-column: span 1; }
+    }
+
+    .feature-icon {
+      font-size: 2rem;
+      margin-bottom: 1rem;
+      display: block;
+    }
+
+    .feature-card h3 {
+      font-size: 1.05rem;
+      font-weight: 600;
+      margin-bottom: 0.6rem;
+    }
+
+    .feature-card p {
+      color: var(--text-muted);
+      font-size: 0.9rem;
+      font-weight: 300;
+      line-height: 1.7;
+    }
+
+    .feature-badge {
+      display: inline-block;
+      font-size: 0.7rem;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      padding: 0.2rem 0.6rem;
+      border-radius: 4px;
+      margin-bottom: 0.75rem;
+    }
+
+    .badge-free { background: rgba(143,175,143,0.15); color: #8FAF8F; }
+    .badge-ai { background: rgba(212,175,55,0.15); color: var(--gold); }
+    .badge-premium { background: rgba(232,99,74,0.12); color: var(--red); }
+
+    /* ── AI TUTOR PERSONAS ── */
+    .personas-section {
+      padding: 5rem 1.5rem;
+      text-align: center;
+    }
+
+    .personas-grid {
+      display: flex;
+      gap: 1rem;
+      overflow-x: auto;
+      padding: 1rem 0 2rem;
+      max-width: 1100px;
+      margin: 0 auto;
+      scrollbar-width: none;
+    }
+
+    .personas-grid::-webkit-scrollbar { display: none; }
+
+    .persona-card {
+      flex-shrink: 0;
+      width: 180px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 1.5rem 1.25rem;
+      text-align: center;
+      transition: all 0.3s;
+      cursor: pointer;
+    }
+
+    .persona-card:hover {
+      border-color: rgba(232,99,74,0.4);
+      transform: translateY(-4px);
+      background: var(--surface2);
+    }
+
+    .persona-emoji { font-size: 2.5rem; margin-bottom: 0.75rem; display: block; }
+
+    .persona-name-zh {
+      font-family: 'Noto Serif SC', serif;
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--gold);
+      margin-bottom: 0.25rem;
+    }
+
+    .persona-name-vn {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      margin-bottom: 0.75rem;
+    }
+
+    .persona-desc {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      line-height: 1.5;
+      font-weight: 300;
+    }
+
+    /* ── SOCIAL PROOF ── */
+    .social-section {
+      padding: 5rem 1.5rem;
+      text-align: center;
+    }
+
+    .stats-row {
+      display: flex;
+      justify-content: center;
+      gap: 3rem;
+      flex-wrap: wrap;
+      margin-bottom: 3rem;
+    }
+
+    .stat-item { text-align: center; }
+
+    .stat-num {
+      font-family: 'Playfair Display', serif;
+      font-size: 2.5rem;
+      font-weight: 700;
+      color: var(--red);
+      display: block;
+    }
+
+    .stat-label {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      font-weight: 300;
+      margin-top: 0.25rem;
+    }
+
+    .testimonials-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 1rem;
+      max-width: 900px;
+      margin: 0 auto;
+    }
+
+    .testimonial {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 1.5rem;
+      text-align: left;
+    }
+
+    .testimonial-text {
+      font-size: 0.9rem;
+      line-height: 1.7;
+      color: var(--text);
+      margin-bottom: 1rem;
+      font-weight: 300;
+    }
+
+    .testimonial-author {
+      display: flex; align-items: center; gap: 0.75rem;
+    }
+
+    .testimonial-avatar {
+      width: 36px; height: 36px;
+      border-radius: 50%;
+      background: var(--surface2);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1rem;
+    }
+
+    .testimonial-name {
+      font-size: 0.85rem;
+      font-weight: 500;
+    }
+
+    .testimonial-handle {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+    }
+
+    /* ── CTA SECTION ── */
+    .cta-section {
+      padding: 7rem 1.5rem;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .cta-section::before {
+      content: '';
+      position: absolute;
+      width: 800px; height: 400px;
+      background: radial-gradient(ellipse, rgba(232,99,74,0.12) 0%, transparent 70%);
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+    }
+
+    .cta-section h2 {
+      font-family: 'Playfair Display', serif;
+      font-size: clamp(2rem, 5vw, 3.5rem);
+      font-weight: 700;
+      line-height: 1.15;
+      margin-bottom: 1.5rem;
+      position: relative; z-index: 1;
+    }
+
+    .cta-section p {
+      color: var(--text-muted);
+      font-size: 1.05rem;
+      margin-bottom: 2.5rem;
+      font-weight: 300;
+      position: relative; z-index: 1;
+    }
+
+    /* ── FOOTER ── */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 2.5rem 2rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+
+    .footer-logo {
+      font-family: 'Playfair Display', serif;
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .footer-logo span { color: var(--red); }
+
+    .footer-copy {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+
+    .footer-links {
+      display: flex; gap: 1.5rem;
+    }
+
+    .footer-links a {
+      font-size: 0.82rem;
+      color: var(--text-muted);
+      text-decoration: none;
+      transition: color 0.2s;
+    }
+
+    .footer-links a:hover { color: var(--text); }
+
+    /* ── SCROLL ANIMATIONS ── */
+    .fade-up {
+      opacity: 0;
+      transform: translateY(30px);
+      transition: opacity 0.7s ease, transform 0.7s ease;
+    }
+
+    .fade-up.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* ── MOBILE ── */
+    @media (max-width: 640px) {
+      nav { padding: 1rem 1.25rem; }
+      .waitlist-form { flex-direction: column; }
+      .waitlist-btn { border-radius: 100px; }
+      .quotes-grid { grid-template-columns: 1fr; }
+      .stats-row { gap: 2rem; }
+      footer { flex-direction: column; align-items: flex-start; }
+
+      .how-section::before { display: none; }
+    }
+
+    /* Floating particles */
+    .particles {
+      position: fixed; inset: 0;
+      pointer-events: none;
+      z-index: 0;
+      overflow: hidden;
+    }
+
+    .particle {
+      position: absolute;
+      font-family: 'Noto Serif SC', serif;
+      color: rgba(212,175,55,0.06);
+      font-size: 4rem;
+      user-select: none;
+      animation: float linear infinite;
+    }
+
+    @keyframes float {
+      0%   { transform: translateY(100vh) rotate(0deg); opacity: 0; }
+      10%  { opacity: 1; }
+      90%  { opacity: 1; }
+      100% { transform: translateY(-100px) rotate(15deg); opacity: 0; }
+    }
+
+    /* Notification toast */
+    .toast {
+      position: fixed;
+      bottom: 2rem; right: 2rem;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 1rem 1.5rem;
+      font-size: 0.875rem;
+      color: var(--text);
+      box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+      transform: translateY(120%);
+      opacity: 0;
+      transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+      z-index: 1000;
+      max-width: 300px;
+      display: flex; align-items: center; gap: 0.75rem;
+    }
+
+    .toast.show {
+      transform: translateY(0);
+      opacity: 1;
+    }
+
+    .toast-icon { font-size: 1.3rem; }
+  </style>
+</head>
+<body>
+
+<!-- Floating Chinese characters -->
+<div class="particles" id="particles"></div>
+
+<!-- NAVBAR -->
+<nav>
+  <a href="#" class="nav-logo">Mando<span>Mood</span></a>
+  <a href="#waitlist" class="nav-cta">Đăng ký sớm</a>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-badge">
+    <span class="hero-badge-dot"></span>
+    Sắp ra mắt — Tham gia danh sách chờ
+  </div>
+
+  <h1>Học tiếng Trung qua<br /><em>cảm xúc & câu chuyện</em></h1>
+
+  <div class="hero-chinese">每天一个故事，一段情感</div>
+  <div class="hero-pinyin">Měi tiān yīgè gùshì, yī duàn qínggǎn</div>
+
+  <p class="hero-sub">
+    Không bài tập nhàm chán. Không ngữ pháp cứng nhắc.<br />
+    Học tiếng Trung như lướt TikTok — mỗi ngày một câu chuyện, một cảm xúc, một kỷ niệm.
+  </p>
+
+  <div id="waitlist">
+    <form class="waitlist-form" id="waitlist-form">
+      <input
+        type="email"
+        class="waitlist-input"
+        placeholder="Email của bạn..."
+        required
+        id="email-input"
+      />
+      <button type="submit" class="waitlist-btn">Tham gia sớm ✨</button>
+    </form>
+
+    <div class="waitlist-success" id="waitlist-success">
+      🎉 Tuyệt vời! Bạn đã vào danh sách. Mình sẽ báo ngay khi ra mắt!
+    </div>
+
+    <p class="waitlist-count">
+      <strong>1,247</strong> người đã đăng ký · Hoàn toàn miễn phí
+    </p>
+  </div>
+</section>
+
+<!-- QUOTE SHOWCASE -->
+<section class="quote-section fade-up">
+  <div class="section-label">✨ Nội dung mẫu</div>
+  <h2 class="section-title">Những câu chuyện<br />chạm đến cảm xúc</h2>
+  <p class="section-sub">
+    Mỗi bài học là một câu nói hay, một mẩu chuyện nhỏ — bạn học mà không nhận ra mình đang học.
+  </p>
+
+  <div class="quotes-grid">
+    <div class="quote-card">
+      <div class="quote-mood">
+        <span class="quote-mood-dot" style="background:#C9878A;"></span>
+        💌 Lãng mạn
+      </div>
+      <div class="quote-zh">有些人只能陪你走一段路</div>
+      <div class="quote-pinyin">Yǒu xiē rén zhǐ néng péi nǐ zǒu yī duàn lù</div>
+      <div class="quote-vn">"Có những người chỉ có thể đồng hành cùng bạn một đoạn đường."</div>
+      <div class="quote-tags">
+        <span class="quote-tag">HSK 2</span>
+        <span class="quote-tag">người &amp; cuộc đời</span>
+        <span class="quote-tag">🔊 Audio</span>
+      </div>
+    </div>
+
+    <div class="quote-card">
+      <div class="quote-mood">
+        <span class="quote-mood-dot" style="background:#8FAF8F;"></span>
+        🌿 Chữa lành
+      </div>
+      <div class="quote-zh">你不需要完美，你只需要真实</div>
+      <div class="quote-pinyin">Nǐ bù xūyào wánměi, nǐ zhǐ xūyào zhēnshí</div>
+      <div class="quote-vn">"Bạn không cần hoàn hảo, bạn chỉ cần chân thật."</div>
+      <div class="quote-tags">
+        <span class="quote-tag">HSK 3</span>
+        <span class="quote-tag">self-love</span>
+        <span class="quote-tag">🔊 Audio</span>
+      </div>
+    </div>
+
+    <div class="quote-card">
+      <div class="quote-mood">
+        <span class="quote-mood-dot" style="background:#D4AF37;"></span>
+        🔥 Động lực
+      </div>
+      <div class="quote-zh">不积跬步，无以至千里</div>
+      <div class="quote-pinyin">Bù jī kuǐbù, wúyǐ zhì qiānlǐ</div>
+      <div class="quote-vn">"Không tích lũy từng bước nhỏ, không thể đi nghìn dặm."</div>
+      <div class="quote-tags">
+        <span class="quote-tag">Thành ngữ</span>
+        <span class="quote-tag">cổ điển</span>
+        <span class="quote-tag">🔊 Audio</span>
+      </div>
+    </div>
+
+    <div class="quote-card">
+      <div class="quote-mood">
+        <span class="quote-mood-dot" style="background:#8A8E9F;"></span>
+        🌙 Aesthetic
+      </div>
+      <div class="quote-zh">人生若只如初见</div>
+      <div class="quote-pinyin">Rénshēng ruò zhǐ rú chū jiàn</div>
+      <div class="quote-vn">"Giá như cuộc đời mãi đẹp như lần đầu gặp gỡ."</div>
+      <div class="quote-tags">
+        <span class="quote-tag">Thơ cổ</span>
+        <span class="quote-tag">Nạp Lan</span>
+        <span class="quote-tag">🔊 Audio</span>
+      </div>
+    </div>
+
+    <div class="quote-card">
+      <div class="quote-mood">
+        <span class="quote-mood-dot" style="background:#7AB8D4;"></span>
+        💚 Tình bạn
+      </div>
+      <div class="quote-zh">真正的朋友，是在你最低谷时还在你身边的人</div>
+      <div class="quote-pinyin">Zhēnzhèng de péngyǒu, shì zài nǐ zuì dǐgǔ shí hái zài nǐ shēnbiān de rén</div>
+      <div class="quote-vn">"Bạn bè thật sự là người ở bên bạn khi bạn ở điểm thấp nhất."</div>
+      <div class="quote-tags">
+        <span class="quote-tag">HSK 4</span>
+        <span class="quote-tag">bạn bè</span>
+        <span class="quote-tag">🔊 Audio</span>
+      </div>
+    </div>
+
+    <div class="quote-card">
+      <div class="quote-mood">
+        <span class="quote-mood-dot" style="background:#C9878A;"></span>
+        💔 Tâm trạng
+      </div>
+      <div class="quote-zh">缘分这东西，说来就来，说走就走</div>
+      <div class="quote-pinyin">Yuánfèn zhè dōngxi, shuō lái jiù lái, shuō zǒu jiù zǒu</div>
+      <div class="quote-vn">"Duyên phận thứ đó, nói đến thì đến, nói đi thì đi."</div>
+      <div class="quote-tags">
+        <span class="quote-tag">HSK 5</span>
+        <span class="quote-tag">缘分</span>
+        <span class="quote-tag">🔊 Audio</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- HOW IT WORKS -->
+<section class="how-section fade-up" style="text-align:center;">
+  <div class="section-label">🎯 Cách hoạt động</div>
+  <h2 class="section-title" style="margin-bottom:0.75rem;">Đơn giản như<br />lướt mạng xã hội</h2>
+  <p class="section-sub">Không cần giáo trình. Không cần lịch học cố định. Chỉ cần 5 phút mỗi ngày.</p>
+
+  <div class="how-steps">
+    <div class="how-step">
+      <div class="how-step-num">1</div>
+      <div class="how-step-content">
+        <span class="how-step-tag">Mỗi ngày</span>
+        <h3>Nhận câu chuyện của ngày hôm nay</h3>
+        <p>Mở app và nhận ngay một câu nói hay, một mẩu chuyện ngắn được AI chọn phù hợp với mood và level của bạn. Nghe audio native, đọc pinyin, cảm nhận.</p>
+      </div>
+    </div>
+
+    <div class="how-step">
+      <div class="how-step-num">2</div>
+      <div class="how-step-content">
+        <span class="how-step-tag">Học tự nhiên</span>
+        <h3>Khám phá từ vựng qua cảm xúc</h3>
+        <p>Chạm vào từ bạn chưa biết → thấy ngay nghĩa, pinyin, cách dùng trong context thật. Không có bảng từ cứng nhắc, chỉ có ngữ cảnh sống động.</p>
+      </div>
+    </div>
+
+    <div class="how-step">
+      <div class="how-step-num">3</div>
+      <div class="how-step-content">
+        <span class="how-step-tag">AI cá nhân hóa</span>
+        <h3>Chat với gia sư AI phù hợp phong cách bạn</h3>
+        <p>Chọn persona yêu thích — cô bạn thân hài hước, mentor CEO nghiêm túc, hay cô gái lạnh lùng — AI nhớ level và sở thích của bạn, dạy theo cách riêng của bạn.</p>
+      </div>
+    </div>
+
+    <div class="how-step">
+      <div class="how-step-num">4</div>
+      <div class="how-step-content">
+        <span class="how-step-tag">Ghi nhớ lâu dài</span>
+        <h3>Chia sẻ và lưu những câu chạm lòng</h3>
+        <p>Tạo quote card đẹp chia sẻ lên Story, lưu collection riêng, xây dựng streak. Não nhớ cảm xúc lâu hơn bài tập — đó là cách MandoMood hoạt động.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FEATURES -->
+<section class="features-section fade-up">
+  <div style="text-align:center;">
+    <div class="section-label">⚡ Tính năng</div>
+    <h2 class="section-title">Mọi thứ bạn cần để<br />thật sự giỏi tiếng Trung</h2>
+    <p class="section-sub" style="margin-bottom:3.5rem;">Được xây dựng cho Gen Z — aesthetic, thú vị, và thực sự hiệu quả.</p>
+  </div>
+
+  <div class="features-grid">
+    <div class="feature-card featured">
+      <span class="feature-badge badge-ai">✨ AI Powered</span>
+      <span class="feature-icon">🤖</span>
+      <h3>AI Story Generator</h3>
+      <p>Yêu cầu AI tạo câu chuyện theo mood và level của bạn: "Tạo câu chuyện lãng mạn HSK2", "Viết nhật ký tiếng Trung về mùa hè" — AI generate ngay, kèm đầy đủ vocab và grammar breakdown.</p>
+    </div>
+
+    <div class="feature-card">
+      <span class="feature-badge badge-free">🆓 Miễn phí</span>
+      <span class="feature-icon">☀️</span>
+      <h3>Daily Quote</h3>
+      <p>Mỗi ngày một câu chuyện mới — theo mood, theo season, theo những gì bạn đang cảm thấy. Tạo thành thói quen đẹp mỗi sáng.</p>
+    </div>
+
+    <div class="feature-card">
+      <span class="feature-badge badge-free">🆓 Miễn phí</span>
+      <span class="feature-icon">📱</span>
+      <h3>TikTok-style Feed</h3>
+      <p>Lướt vô tận qua quotes, meme tiếng Trung, đoạn hội thoại, thành ngữ — như lướt mạng nhưng đang học thật sự.</p>
+    </div>
+
+    <div class="feature-card">
+      <span class="feature-badge badge-premium">👑 Premium</span>
+      <span class="feature-icon">🗣️</span>
+      <h3>Luyện phát âm AI</h3>
+      <p>Record giọng nói → AI chấm điểm từng thanh điệu, so sánh với giọng native, chỉ ra chính xác âm nào cần cải thiện.</p>
+    </div>
+
+    <div class="feature-card">
+      <span class="feature-badge badge-ai">✨ AI Powered</span>
+      <span class="feature-icon">🧠</span>
+      <h3>Character Memory System</h3>
+      <p>Mỗi chữ Hán có câu chuyện nguồn gốc, visual mnemonic và emotional hook riêng. Học chữ 爱 không phải qua 13 nét, mà qua "trong tình yêu có trái tim 心."</p>
+    </div>
+
+    <div class="feature-card">
+      <span class="feature-badge badge-premium">👑 Premium</span>
+      <span class="feature-icon">🗺️</span>
+      <h3>HSK Roadmap cá nhân</h3>
+      <p>AI phân tích điểm mạnh và yếu, tạo lộ trình học cá nhân hướng đến HSK mục tiêu của bạn — không cần tự tìm hiểu.</p>
+    </div>
+  </div>
+</section>
+
+<!-- AI PERSONAS -->
+<section class="personas-section fade-up">
+  <div class="section-label">🤖 AI Tutor</div>
+  <h2 class="section-title">Chọn gia sư AI<br />phù hợp với bạn</h2>
+  <p class="section-sub">6 personas với cá tính riêng — AI nhớ level và phong cách học của bạn.</p>
+
+  <div class="personas-grid">
+    <div class="persona-card">
+      <span class="persona-emoji">❄️</span>
+      <div class="persona-name-zh">冰冰</div>
+      <div class="persona-name-vn">Băng Băng</div>
+      <div class="persona-desc">Lạnh lùng, thẳng thắn, hiệu quả cao. Dạy nghiêm nhưng kết quả nhanh.</div>
+    </div>
+
+    <div class="persona-card">
+      <span class="persona-emoji">🌸</span>
+      <div class="persona-name-zh">小暖</div>
+      <div class="persona-name-vn">Tiểu Noãn</div>
+      <div class="persona-desc">Ấm áp, kiên nhẫn, luôn khuyến khích. Như người bạn thân biết tiếng Trung.</div>
+    </div>
+
+    <div class="persona-card">
+      <span class="persona-emoji">😂</span>
+      <div class="persona-name-zh">哈哈</div>
+      <div class="persona-name-vn">Ha Ha</div>
+      <div class="persona-desc">Hài hước, meme, năng lượng cao. Học mà như đang chơi.</div>
+    </div>
+
+    <div class="persona-card">
+      <span class="persona-emoji">💼</span>
+      <div class="persona-name-zh">总总</div>
+      <div class="persona-name-vn">Tổng Tổng</div>
+      <div class="persona-desc">CEO mentor. Chuyên nghiệp, định hướng mục tiêu rõ ràng.</div>
+    </div>
+
+    <div class="persona-card">
+      <span class="persona-emoji">⭐</span>
+      <div class="persona-name-zh">星星</div>
+      <div class="persona-name-vn">Tinh Tinh</div>
+      <div class="persona-desc">Idol vibes. Cuồng nhiệt, aesthetic, C-pop &amp; drama lover.</div>
+    </div>
+
+    <div class="persona-card">
+      <span class="persona-emoji">📚</span>
+      <div class="persona-name-zh">先生</div>
+      <div class="persona-name-vn">Tiên Sinh</div>
+      <div class="persona-desc">Thầy giáo anime. Nghiêm túc nhưng gentle, giải thích cực kỳ rõ.</div>
+    </div>
+  </div>
+</section>
+
+<!-- SOCIAL PROOF -->
+<section class="social-section fade-up">
+  <div class="section-label">💬 Phản hồi</div>
+  <h2 class="section-title" style="margin-bottom:2.5rem;">Người thật, cảm nhận thật</h2>
+
+  <div class="stats-row">
+    <div class="stat-item">
+      <span class="stat-num">1,200+</span>
+      <div class="stat-label">người đăng ký sớm</div>
+    </div>
+    <div class="stat-item">
+      <span class="stat-num">92%</span>
+      <div class="stat-label">muốn dùng hàng ngày</div>
+    </div>
+    <div class="stat-item">
+      <span class="stat-num">4.9★</span>
+      <div class="stat-label">điểm beta test</div>
+    </div>
+  </div>
+
+  <div class="testimonials-grid">
+    <div class="testimonial">
+      <div class="testimonial-text">
+        "Mình học tiếng Trung được 2 năm mà vẫn không cảm thấy 'kết nối' với ngôn ngữ. MandoMood thay đổi hoàn toàn — mình thấy mình đang sống trong ngôn ngữ đó, không chỉ học."
+      </div>
+      <div class="testimonial-author">
+        <div class="testimonial-avatar">🌸</div>
+        <div>
+          <div class="testimonial-name">Minh Châu</div>
+          <div class="testimonial-handle">@minhchau.learns · HCM</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="testimonial">
+      <div class="testimonial-text">
+        "Cái quote 人生若只如初见 mình học từ MandoMood, giờ dùng được trong thực tế rồi. Người ta ngạc nhiên lắm 😂 Học kiểu này hay hơn hẳn Duolingo."
+      </div>
+      <div class="testimonial-author">
+        <div class="testimonial-avatar">⚡</div>
+        <div>
+          <div class="testimonial-name">Thành Đạt</div>
+          <div class="testimonial-handle">@datdep.vn · Hà Nội</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="testimonial">
+      <div class="testimonial-text">
+        "AI tutor persona 冰冰 dạy mình kiểu cứng cứng mà mình lại thích 😭 Cảm giác như có người bạn Trung Quốc thật đang dạy mình vậy."
+      </div>
+      <div class="testimonial-author">
+        <div class="testimonial-avatar">🎭</div>
+        <div>
+          <div class="testimonial-name">Lan Anh</div>
+          <div class="testimonial-handle">@lananhxiaohu · Đà Nẵng</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FINAL CTA -->
+<section class="cta-section fade-up">
+  <h2>Bắt đầu học tiếng Trung<br /><em style="color:var(--red);font-style:italic;">theo cách của bạn</em></h2>
+  <p>Tham gia cùng hàng nghìn người đang chờ ra mắt.<br />Hoàn toàn miễn phí để đăng ký.</p>
+
+  <form class="waitlist-form" id="waitlist-form-2" style="position:relative;z-index:1;">
+    <input
+      type="email"
+      class="waitlist-input"
+      placeholder="Email của bạn..."
+      required
+      id="email-input-2"
+    />
+    <button type="submit" class="waitlist-btn">Tham gia ngay 🌸</button>
+  </form>
+
+  <p style="margin-top:1rem;font-size:0.8rem;color:var(--text-muted);position:relative;z-index:1;">
+    Không spam. Chỉ thông báo khi ra mắt.
+  </p>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-logo">Mando<span>Mood</span></div>
+  <div class="footer-links">
+    <a href="#">Privacy</a>
+    <a href="#">Terms</a>
+    <a href="mailto:hello@mandomood.com">Contact</a>
+  </div>
+  <div class="footer-copy">© 2026 MandoMood · 用情感学中文</div>
+</footer>
+
+<!-- TOAST NOTIFICATION -->
+<div class="toast" id="toast">
+  <span class="toast-icon">🎉</span>
+  <span id="toast-msg">Đã đăng ký thành công!</span>
+</div>
+
+<script>
+  // ── Floating particles
+  const chars = ['爱','情','心','缘','梦','美','望','静','悦','诗','风','月'];
+  const container = document.getElementById('particles');
+  chars.forEach((c, i) => {
+    const el = document.createElement('div');
+    el.className = 'particle';
+    el.textContent = c;
+    el.style.cssText = `
+      left: ${Math.random() * 100}%;
+      animation-duration: ${15 + Math.random() * 20}s;
+      animation-delay: ${Math.random() * 15}s;
+      font-size: ${3 + Math.random() * 4}rem;
+    `;
+    container.appendChild(el);
+  });
+
+  // ── Scroll fade-in
+  const observer = new IntersectionObserver(
+    (entries) => entries.forEach(e => {
+      if (e.isIntersecting) e.target.classList.add('visible');
+    }),
+    { threshold: 0.1, rootMargin: '0px 0px -60px 0px' }
+  );
+  document.querySelectorAll('.fade-up').forEach(el => observer.observe(el));
+
+  // ── Toast helper
+  function showToast(msg) {
+    const t = document.getElementById('toast');
+    document.getElementById('toast-msg').textContent = msg;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 4000);
+  }
+
+  // ── Waitlist form submit
+  function handleWaitlist(e) {
+    e.preventDefault();
+    const emailInput = e.target.querySelector('input[type=email]');
+    const email = emailInput.value.trim();
+    if (!email) return;
+
+    // Simulate submit (replace with real API call)
+    emailInput.value = '';
+
+    // Show success in hero form
+    const form1 = document.getElementById('waitlist-form');
+    const success = document.getElementById('waitlist-success');
+    if (e.target === form1) {
+      form1.style.display = 'none';
+      success.style.display = 'block';
+    }
+
+    showToast('🌸 Cảm ơn bạn! Mình sẽ báo ngay khi ra mắt.');
+
+    // TODO: Send to backend
+    // fetch('/api/waitlist', { method: 'POST', body: JSON.stringify({ email }), headers: {'Content-Type':'application/json'} })
+    console.log('Waitlist signup:', email);
+  }
+
+  document.getElementById('waitlist-form').addEventListener('submit', handleWaitlist);
+  document.getElementById('waitlist-form-2').addEventListener('submit', handleWaitlist);
+
+  // ── Persona cards interaction
+  document.querySelectorAll('.persona-card').forEach(card => {
+    card.addEventListener('click', () => {
+      const name = card.querySelector('.persona-name-vn').textContent;
+      showToast(`🤖 ${name} sẽ là gia sư của bạn! Sắp ra mắt...`);
+    });
+  });
+
+  // ── Smooth scroll for nav CTA
+  document.querySelector('.nav-cta').addEventListener('click', e => {
+    e.preventDefault();
+    document.getElementById('waitlist').scrollIntoView({ behavior: 'smooth' });
+  });
+</script>
+</body>
+</html>
