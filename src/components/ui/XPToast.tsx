@@ -2,7 +2,7 @@
 
 import { motion, AnimatePresence } from "framer-motion";
 import { Star } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 interface XPToastProps {
   xp: number;
@@ -33,12 +33,21 @@ export default function XPToast({ xp, show }: XPToastProps) {
 export function useXPToast() {
   const [xp, setXP] = useState(0);
   const [show, setShow] = useState(false);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const awardXP = (amount: number) => {
     setXP(amount);
     setShow(true);
-    setTimeout(() => setShow(false), 1500);
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => setShow(false), 1500);
   };
+
+  // Dọn timer khi unmount → tránh setState sau khi component đã rời DOM
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  }, []);
 
   return { xp, show, awardXP };
 }

@@ -9,13 +9,13 @@ export async function POST(req: NextRequest) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const session = await (getServerSession as any)(authOptions);
     if (!session?.user?.email) {
-      return NextResponse.json({ error: "Chua dang nhap" }, { status: 401 });
+      return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
     }
     const { subscription } = await req.json() as {
       subscription: { endpoint: string; keys: { p256dh: string; auth: string } };
     };
     if (!subscription?.endpoint) {
-      return NextResponse.json({ error: "Thieu subscription" }, { status: 400 });
+      return NextResponse.json({ error: "Thiếu subscription" }, { status: 400 });
     }
     await connectDB();
     await User.findOneAndUpdate(
@@ -25,6 +25,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: true });
   } catch (e) {
     console.error("[POST /api/push/subscribe]", e);
-    return NextResponse.json({ error: "Loi server" }, { status: 500 });
+    return NextResponse.json({ error: "Lỗi server" }, { status: 500 });
   }
 }

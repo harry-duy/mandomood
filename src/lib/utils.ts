@@ -1,3 +1,4 @@
+// MandoMood — tiện ích dùng chung (cn, format, localStorage an toàn, hằng mood).
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 
@@ -22,6 +23,31 @@ export function formatDateVN(date: Date): string {
     month: "2-digit",
     year: "numeric",
   });
+}
+
+/**
+ * Đọc & parse JSON từ localStorage an toàn.
+ * Trả `fallback` nếu: chạy SSR, key không tồn tại, hoặc dữ liệu hỏng
+ * (tự dọn key hỏng để tránh crash lặp lại). KHÔNG bao giờ ném lỗi.
+ */
+export function readJSON<T>(key: string, fallback: T): T {
+  if (typeof window === "undefined") return fallback;
+  try {
+    const raw = window.localStorage.getItem(key);
+    if (raw === null) return fallback;
+    return JSON.parse(raw) as T;
+  } catch {
+    try { window.localStorage.removeItem(key); } catch { /* ignore */ }
+    return fallback;
+  }
+}
+
+/** Ghi JSON vào localStorage an toàn (nuốt lỗi quota/SSR). */
+export function writeJSON(key: string, value: unknown): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(key, JSON.stringify(value));
+  } catch { /* quota đầy hoặc bị chặn — bỏ qua */ }
 }
 
 /** Map mood sang màu */

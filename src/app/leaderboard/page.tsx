@@ -14,6 +14,8 @@ import { useSession } from "next-auth/react";
 import { cn } from "@/lib/utils";
 
 interface LeaderUser {
+  test_best_pct?: number;
+  tests_taken?: number;
   rank: number;
   name: string;
   image: string | null;
@@ -136,6 +138,16 @@ function RankRow({ user, period, isMe }: { user: LeaderUser; period: "weekly" | 
         <p className="text-xs opacity-50">{LEVEL_EMOJI[user.level]} {user.level.toUpperCase()}</p>
       </div>
 
+      {/* Thành tích thi (best %) — chỉ hiện khi đã từng thi */}
+      {(user.tests_taken ?? 0) > 0 && (
+        <div className="flex items-center gap-0.5" title={`${user.tests_taken} lần thi · cao nhất ${user.test_best_pct}%`}>
+          <span className="text-xs">📝</span>
+          <span className={(user.test_best_pct ?? 0) >= 100 ? "text-xs font-medium text-green-400" : "text-xs font-medium opacity-70"}>
+            {user.test_best_pct}%
+          </span>
+        </div>
+      )}
+
       {/* Streak */}
       {user.streak > 0 && (
         <div className="flex items-center gap-0.5">
@@ -156,7 +168,7 @@ function RankRow({ user, period, isMe }: { user: LeaderUser; period: "weekly" | 
 export default function LeaderboardPage() {
   const { data: session } = useSession();
   const [period, setPeriod] = useState<"weekly" | "alltime">("weekly");
-  const [users, setUsers] = useState<LeaderUser[]>([]);
+  const [users, setUsers] = useState<LeaderUser[]>(DEMO_USERS);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {

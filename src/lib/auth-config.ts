@@ -7,6 +7,7 @@ import GoogleProvider from "next-auth/providers/google";
 import type { NextAuthOptions } from "next-auth";
 import { connectDB } from "./mongodb";
 import User from "@/models/User";
+import { premiumSource, daysLeft, trialEndDate } from "@/lib/premium";
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -24,16 +25,23 @@ export const authOptions: NextAuthOptions = {
         await connectDB();
         const existing = await User.findOne({ email: user.email });
         if (!existing) {
+          // Tài khoản mới → tặng 30 ngày Premium trial (hết hạn tự khóa, mua ở /pricing)
           await User.create({
             email: user.email,
-            name: user.name ?? "Nguoi hoc",
+            name: user.name ?? "Người học",
             image: user.image,
             provider: "google",
+            trial_until: trialEndDate(),
           });
         } else {
+          // Tài khoản cũ chưa từng có trial và chưa premium → tặng nốt 1 lần
+          const grantTrial = !existing.trial_until && !existing.premium;
           await User.findOneAndUpdate(
             { email: user.email },
-            { last_active: new Date() }
+            {
+              last_active: new Date(),
+              ...(grantTrial ? { trial_until: trialEndDate() } : {}),
+            }
           );
         }
         return true;
@@ -65,9 +73,25 @@ export const authOptions: NextAuthOptions = {
               premium: u.premium,
               weekly_xp: u.weekly_xp,
             };
-            // Expose premium trực tiếp trên session.user để PremiumGate dùng
+            // Premium HIỆU LỰC: paid còn hạn (lifetime nếu không có premium_until)
+            // HOẶC trial còn hạn. Hết cả hai → false (khóa tính năng Premium).
+            const source = premiumSource({
+              premium: u.premium as boolean | undefined,
+              premium_until: u.premium_until as Date | undefined,
+              trial_until: u.trial_until as Date | undefined,
+            });
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            (session.user as any).premium = u.premium ?? false;
+            (session.user as any).premium = source !== null;
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (session.user as any).premiumSource = source; // "paid" | "trial" | null
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (session.user as any).trialDaysLeft = source === "trial"
+              ? daysLeft(u.trial_until as Date | undefined)
+              : 0;
+            // Expose is_admin — chỉ email trong ADMIN_EMAILS được quyền
+            const adminEmails = (process.env.ADMIN_EMAILS ?? "ngothanhduy04@gmail.com").split(",").map(e => e.trim());
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (session.user as any).is_admin = adminEmails.includes(token.email as string);
           }
         } catch (e) {
           console.error("[NextAuth session]", e);
@@ -79,5 +103,13 @@ export const authOptions: NextAuthOptions = {
 
   pages: { signIn: "/login", error: "/login" },
 
-  secret: process.env.NEXTAUTH_SECRET ?? "mandomood-dev-secret",
+  // JWT session (không dùng DB adapter) — phù hợp với MongoDB tự quản
+  session: { strategy: "jwt", maxAge: 30 * 24 * 60 * 60 }, // 30 ngày
+
+  // CẢNH BÁO: production BẮT BUỘC set NEXTAUTH_SECRET (nếu không, JWT có thể bị giả mạo).
+  secret:
+    process.env.NEXTAUTH_SECRET ??
+    (process.env.NODE_ENV === "production"
+      ? (() => { throw new Error("NEXTAUTH_SECRET là bắt buộc ở production"); })()
+      : "mandomood-dev-secret"),
 };

@@ -1,4 +1,5 @@
 "use client";
+// Voice selector uses useTTS speak for preview
 
 /**
  * /profile — Ho so nguoi dung
@@ -16,6 +17,9 @@ import {
   HeartOff, ExternalLink
 } from "lucide-react";
 import { useSession, signIn } from "next-auth/react";
+import SyncButton from "@/components/ui/SyncButton";
+import SubscriptionCard from "@/components/ui/SubscriptionCard";
+import { useAppStore } from "@/store/useAppStore";
 import { useProgress } from "@/hooks/useProgress";
 import { useSavedQuotes } from "@/hooks/useSavedQuotes";
 import { cn } from "@/lib/utils";
@@ -25,7 +29,7 @@ import Image from "next/image";
 const LEVEL_CONFIG: Record<string, {
   label: string; hanzi: string; color: string; nextXP: number; emoji: string;
 }> = {
-  beginner: { label: "Moi bat dau", hanzi: "初见", color: "#8A8078", nextXP: 100, emoji: "🌱" },
+  beginner: { label: "Mới bắt đầu", hanzi: "初见", color: "#8A8078", nextXP: 100, emoji: "🌱" },
   hsk1:     { label: "HSK 1",       hanzi: "好奇", color: "#7AB8D4", nextXP: 300, emoji: "🌸" },
   hsk2:     { label: "HSK 2",       hanzi: "迷恋", color: "#8FAF8F", nextXP: 700, emoji: "🌿" },
   hsk3:     { label: "HSK 3",       hanzi: "心动", color: "#D4AF37", nextXP: 1500, emoji: "⭐" },
@@ -59,7 +63,7 @@ function StreakDisplay({ days }: { days: number }) {
     <div className="flex items-center gap-1.5">
       <Flame size={20} className={cn("shrink-0", intensity)} />
       <span className="text-2xl font-bold leading-none">{days}</span>
-      <span className="text-xs text-[#8A8078] mt-1">ngay</span>
+      <span className="text-xs text-[#8A8078] mt-1">ngày</span>
     </div>
   );
 }
@@ -78,8 +82,8 @@ function XPProgressBar({ xp, level }: { xp: number; level: string }) {
       <div className="flex items-center justify-between text-xs">
         <span className="text-[#8A8078]">
           {level === "hsk6"
-            ? "Level toi da"
-            : `${xpToNext.toLocaleString()} XP den ${nextLevel?.toUpperCase() ?? ""}`
+            ? "Cấp tối đa"
+            : `${xpToNext.toLocaleString()} XP đến ${nextLevel?.toUpperCase() ?? ""}`
           }
         </span>
         <span className="text-[#D4AF37] font-semibold">{xp.toLocaleString()} XP</span>
@@ -161,7 +165,7 @@ function SavedQuoteCard({
       <button
         onClick={() => onUnsave(quote._id)}
         className="absolute top-3 right-3 w-7 h-7 rounded-full flex items-center justify-center text-[#5A5450] hover:text-[#E8504A] hover:bg-[rgba(232,80,74,0.1)] transition-all"
-        aria-label="Bo luu"
+        aria-label="Bỏ lưu"
       >
         <HeartOff size={13} />
       </button>
@@ -173,13 +177,14 @@ function SavedQuoteCard({
 export default function ProfilePage() {
   const router = useRouter();
   const { data: session, status } = useSession();
+  const { selectedVoice, setSelectedVoice } = useAppStore();
   const { stats, loading: progressLoading } = useProgress();
   const { quotes: savedQuotes, count: savedCount, loading: savesLoading, toggleSave } = useSavedQuotes();
   const [showSaved, setShowSaved] = useState(false);
 
   const user = session?.user;
   const isLoggedIn = !!user;
-  const displayName = user?.name ?? "Khach";
+  const displayName = user?.name ?? "Khách";
   const initial = displayName.charAt(0).toUpperCase();
 
   const level = stats.level ?? "beginner";
@@ -251,12 +256,33 @@ export default function ProfilePage() {
 
         <button
           className="w-9 h-9 rounded-full bg-[#1A1A1A] flex items-center justify-center text-[#5A5450] hover:text-white transition-colors shrink-0"
-          onClick={() => {}}
-          aria-label="Cai dat"
+          onClick={() => {
+            if (!isLoggedIn) {
+              void signIn("google", { callbackUrl: "/profile" });
+              return;
+            }
+            document.getElementById("profile-settings")?.scrollIntoView({ behavior: "smooth", block: "start" });
+          }}
+          aria-label="Cài đặt"
         >
           <Settings size={16} />
         </button>
       </motion.div>
+
+      {/* Gói đăng ký hiện tại (paid/trial/free) */}
+      <SubscriptionCard />
+
+      {/* ── Đồng bộ đám mây (chỉ khi đã đăng nhập) ── */}
+      {isLoggedIn && (
+        <motion.div
+          initial={{ opacity: 0, y: 15 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.05 }}
+          className="mb-4"
+        >
+          <SyncButton />
+        </motion.div>
+      )}
 
       {/* ── XP Progress ── */}
       {isLoggedIn && (
@@ -270,7 +296,7 @@ export default function ProfilePage() {
           <div className="flex items-center gap-2 mb-3">
             <Zap size={14} style={{ color: cfg.color }} />
             <p className="text-xs uppercase tracking-widest font-semibold" style={{ color: cfg.color }}>
-              Tien do cap do
+              Tiến độ cấp độ
             </p>
           </div>
           <XPProgressBar xp={xp} level={level} />
@@ -289,13 +315,13 @@ export default function ProfilePage() {
           <p className="text-[10px] text-[#5A5450] uppercase tracking-wider mb-2">Streak</p>
           <StreakDisplay days={streak} />
           <p className="text-[10px] text-[#5A5450] mt-1">
-            {streak === 0 ? "Hay hoc hom nay!" : streak >= 30 ? "Xuat sac!" : "Tiep tuc nhe!"}
+            {streak === 0 ? "Hãy học hôm nay!" : streak >= 30 ? "Xuất sắc!" : "Tiếp tục nhé!"}
           </p>
         </div>
 
         {/* XP */}
         <div className="rounded-2xl bg-[#141414] p-4" style={{ border: "1px solid rgba(255,255,255,0.06)" }}>
-          <p className="text-[10px] text-[#5A5450] uppercase tracking-wider mb-2">Tong XP</p>
+          <p className="text-[10px] text-[#5A5450] uppercase tracking-wider mb-2">Tổng XP</p>
           <div className="flex items-center gap-1.5">
             <Star size={20} className="text-[#D4AF37] shrink-0" />
             <span className="text-2xl font-bold leading-none">{xp.toLocaleString()}</span>
@@ -305,12 +331,12 @@ export default function ProfilePage() {
 
         {/* Lessons */}
         <div className="rounded-2xl bg-[#141414] p-4" style={{ border: "1px solid rgba(255,255,255,0.06)" }}>
-          <p className="text-[10px] text-[#5A5450] uppercase tracking-wider mb-2">Bai da hoc</p>
+          <p className="text-[10px] text-[#5A5450] uppercase tracking-wider mb-2">Bài đã học</p>
           <div className="flex items-center gap-1.5">
             <BookOpen size={20} className="text-[#8FAF8F] shrink-0" />
             <span className="text-2xl font-bold leading-none">{Math.floor(xp / 20)}</span>
           </div>
-          <p className="text-[10px] text-[#5A5450] mt-1">bai hoan thanh</p>
+          <p className="text-[10px] text-[#5A5450] mt-1">bài hoàn thành</p>
         </div>
 
         {/* Saved — clickable, shows real count from API */}
@@ -319,7 +345,7 @@ export default function ProfilePage() {
           className="rounded-2xl bg-[#141414] p-4 text-left hover:bg-[#1A1A1A] transition-colors"
           style={{ border: `1px solid ${showSaved ? "rgba(201,135,138,0.3)" : "rgba(255,255,255,0.06)"}` }}
         >
-          <p className="text-[10px] text-[#5A5450] uppercase tracking-wider mb-2">Da luu</p>
+          <p className="text-[10px] text-[#5A5450] uppercase tracking-wider mb-2">Đã lưu</p>
           <div className="flex items-center gap-1.5">
             <Heart size={20} className="text-[#C9878A] shrink-0" />
             <span className="text-2xl font-bold leading-none">
@@ -329,7 +355,7 @@ export default function ProfilePage() {
             </span>
           </div>
           <p className="text-[10px] mt-1" style={{ color: showSaved ? "#C9878A" : "#5A5450" }}>
-            {showSaved ? "Tap de dong" : "cau quote"}
+            {showSaved ? "Chạm để đóng" : "câu quote"}
           </p>
         </button>
       </motion.div>
@@ -348,7 +374,7 @@ export default function ProfilePage() {
               <div className="flex items-center gap-2 mb-4">
                 <Heart size={14} className="text-[#C9878A]" />
                 <p className="text-xs text-[#C9878A] uppercase tracking-widest font-semibold">
-                  Cau da luu ({savedCount})
+                  Câu đã lưu ({savedCount})
                 </p>
               </div>
 
@@ -361,13 +387,13 @@ export default function ProfilePage() {
               ) : savedQuotes.length === 0 ? (
                 <div className="text-center py-8">
                   <p className="text-3xl mb-2">🌸</p>
-                  <p className="text-sm text-[#5A5450]">Chua co cau nao duoc luu</p>
+                  <p className="text-sm text-[#5A5450]">Chưa có câu nào được lưu</p>
                   <button
                     onClick={() => router.push("/feed")}
                     className="mt-3 flex items-center gap-1.5 mx-auto text-xs text-[#8A8078] hover:text-white transition-colors"
                   >
                     <ExternalLink size={11} />
-                    Kham pha quotes
+                    Khám phá quotes
                   </button>
                 </div>
               ) : (
@@ -400,17 +426,17 @@ export default function ProfilePage() {
           <div className="flex items-center gap-2 mb-3">
             <Trophy size={14} className="text-[#D4AF37]" />
             <p className="text-xs text-[#D4AF37] uppercase tracking-widest font-semibold">
-              Thanh tich
+              Thành tích
             </p>
           </div>
           <div className="space-y-2">
             {[
-              { label: "Ngay dau tien", emoji: "🌱", done: xp >= 20 },
-              { label: "7 ngay lien tuc", emoji: "🔥", done: streak >= 7 },
-              { label: "Dat HSK 1", emoji: "🌸", done: xp >= 100 },
+              { label: "Ngày đầu tiên", emoji: "🌱", done: xp >= 20 },
+              { label: "7 ngày liên tục", emoji: "🔥", done: streak >= 7 },
+              { label: "Đạt HSK 1", emoji: "🌸", done: xp >= 100 },
               { label: "100 XP", emoji: "⭐", done: xp >= 100 },
-              { label: "30 ngay streak", emoji: "💎", done: streak >= 30 },
-              { label: "Dat HSK 3", emoji: "👑", done: xp >= 700 },
+              { label: "30 ngày streak", emoji: "💎", done: streak >= 30 },
+              { label: "Đạt HSK 3", emoji: "👑", done: xp >= 700 },
             ].map(({ label, emoji, done }) => (
               <div
                 key={label}
@@ -421,7 +447,7 @@ export default function ProfilePage() {
               >
                 <span className={cn("text-base", !done && "grayscale opacity-30")}>{emoji}</span>
                 <span className={done ? "" : "line-through"}>{label}</span>
-                {done && <span className="ml-auto text-[10px] text-[#8FAF8F]">check</span>}
+                {done && <span className="ml-auto text-[10px] text-[#8FAF8F]">✓ Đã đạt</span>}
               </div>
             ))}
           </div>
@@ -437,9 +463,10 @@ export default function ProfilePage() {
         style={{ border: "1px solid rgba(255,255,255,0.06)" }}
       >
         {[
-          { label: "Kham pha quotes moi", href: "/feed", emoji: "✨", sub: "Feed hom nay" },
-          { label: "Tao story AI", href: "/generate", emoji: "🤖", sub: "Ca nhan hoa" },
-          { label: "Luyen voi AI Tutor", href: "/ai-tutor", emoji: "💬", sub: "Chat ngay" },
+          { label: "Báo cáo học tập", href: "/profile/report", emoji: "📊", sub: "XP · Streak · Badges" },
+          { label: "Khám phá quotes mới", href: "/feed", emoji: "✨", sub: "Feed hôm nay" },
+          { label: "Tạo story AI", href: "/generate", emoji: "🤖", sub: "Cá nhân hóa" },
+          { label: "Luyện với AI Tutor", href: "/ai-tutor", emoji: "💬", sub: "Chat ngay" },
         ].map(({ label, href, emoji, sub }, i, arr) => (
           <button
             key={href}
@@ -469,17 +496,67 @@ export default function ProfilePage() {
           style={{ border: "1px solid rgba(232,80,74,0.2)", background: "rgba(232,80,74,0.04)" }}
         >
           <p className="text-3xl mb-3">🌸</p>
-          <p className="font-semibold mb-1">Dang nhap de luu tien trinh</p>
+          <p className="font-semibold mb-1">Đăng nhập để lưu tiến trình</p>
           <p className="text-sm text-[#8A8078] mb-4 leading-relaxed">
-            Streak, XP va bo suu tap quote se duoc luu vinh vien
+            Streak, XP và bộ sưu tập quote sẽ được lưu vĩnh viễn
           </p>
           <button
-            onClick={() => signIn("google", { callbackUrl: "/profile" })}
-            className="flex items-center justify-center gap-2 w-full py-3 rounded-2xl bg-[#E8504A] text-white font-semibold text-sm hover:bg-[#d43f39] transition-colors"
+            onClick={() => void signIn("google", { callbackUrl: "/profile" })}
+            className="flex items-center justify-center gap-2 w-full py-3 rounded-2xl bg-[#E8504A] text-white text-sm font-semibold hover:bg-[#d44a44] transition-colors"
           >
             <LogIn size={16} />
-            Dang nhap voi Google
+            Đăng nhập với Google
           </button>
+        </motion.div>
+      )}
+
+      {isLoggedIn && (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
+        >
+        {/* Voice Selector */}
+        <div id="profile-settings" className="space-y-3 scroll-mt-20">
+          <h2 className="text-sm font-bold uppercase tracking-wider opacity-60" style={{ color: "var(--mm-text)" }}>
+            🎙️ Giọng đọc TTS
+          </h2>
+          <div className="grid grid-cols-2 gap-2">
+            {([
+              { id: "EXAVITQu4vr4xnSDxMaL", name: "Sarah", desc: "Multilingual", emoji: "🎙️" },
+              { id: "21m00Tcm4TlvDq8ikWAM", name: "Rachel", desc: "Nhẹ nhàng", emoji: "🌸" },
+              { id: "9BWtsMINqrJLrRacOk9x", name: "Aria",   desc: "Năng động",  emoji: "⚡" },
+              { id: "web",                  name: "Web Speech", desc: "Offline • Miễn phí", emoji: "🌐" },
+            ] as const).map((v) => (
+              <button
+                key={v.id}
+                onClick={() => {
+                  setSelectedVoice(v.id);
+                  if (session?.user?.email) {
+                    void fetch("/api/user/voice", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ voiceId: v.id }),
+                    });
+                  }
+                }}
+                className={cn(
+                  "p-3 rounded-2xl border-2 text-left transition-all",
+                  selectedVoice === v.id
+                    ? "border-[var(--mm-red)] bg-[var(--mm-red)]/10"
+                    : "border-white/10 bg-white/5 hover:bg-white/10"
+                )}
+              >
+                <div className="text-lg mb-1">{v.emoji}</div>
+                <div className="text-xs font-bold" style={{ color: "var(--mm-text)" }}>{v.name}</div>
+                <div className="text-[10px] opacity-50 mt-0.5" style={{ color: "var(--mm-text)" }}>{v.desc}</div>
+                {selectedVoice === v.id && (
+                  <div className="text-[10px] text-[var(--mm-red)] font-semibold mt-1">✓ Đang dùng</div>
+                )}
+              </button>
+            ))}
+          </div>
+        </div>
         </motion.div>
       )}
     </div>

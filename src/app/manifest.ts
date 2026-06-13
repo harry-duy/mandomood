@@ -15,7 +15,7 @@ export default function manifest(): MetadataRoute.Manifest {
         src: "/icons/icon-192.png",
         sizes: "192x192",
         type: "image/png",
-        purpose: "maskable",
+        purpose: "any",
       },
       {
         src: "/icons/icon-512.png",
@@ -23,8 +23,46 @@ export default function manifest(): MetadataRoute.Manifest {
         type: "image/png",
         purpose: "any",
       },
+      {
+        src: "/icons/icon-512.png",
+        sizes: "512x512",
+        type: "image/png",
+        purpose: "maskable",
+      },
     ],
     categories: ["education", "lifestyle"],
     lang: "vi",
+    shortcuts: [
+      {
+        name: "Học hôm nay",
+        short_name: "Học",
+        description: "Mở feed bài học theo cảm xúc",
+        url: "/feed",
+      },
+      {
+        name: "Flashcard ôn tập",
+        short_name: "Flashcard",
+        description: "Ôn từ vựng theo lịch SRS",
+        url: "/flashcards",
+      },
+      {
+        name: "Luyện viết chữ Hán",
+        short_name: "Luyện viết",
+        description: "Tạo bảng 田字格 in / lưu PDF",
+        url: "/luyen-viet",
+      },
+      {
+        name: "Luyện chính tả",
+        short_name: "Chính tả",
+        description: "Nghe phát âm và gõ lại từ / câu",
+        url: "/dictation",
+      },
+      {
+        name: "AI Gia sư",
+        short_name: "AI Tutor",
+        description: "Trò chuyện luyện tiếng Trung với AI",
+        url: "/ai-tutor",
+      },
+    ],
   };
 }

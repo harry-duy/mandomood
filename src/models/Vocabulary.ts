@@ -9,6 +9,7 @@ export interface IVocabularyCard extends Document {
   example_pinyin?: string;
   example_translation?: string;
   source_lesson?: string;
+  card_type: "word" | "sentence"; // "word" = từ đơn, "sentence" = câu/cụm
   // SRS fields
   ease_factor: number;   // default 2.5
   interval: number;      // days until next review
@@ -29,6 +30,7 @@ const VocabularySchema = new Schema<IVocabularyCard>({
   example_pinyin:       { type: String },
   example_translation:  { type: String },
   source_lesson:        { type: String },
+  card_type:            { type: String, enum: ["word", "sentence"], default: "word" },
   ease_factor:          { type: Number, default: 2.5 },
   interval:             { type: Number, default: 1 },
   repetitions:          { type: Number, default: 0 },

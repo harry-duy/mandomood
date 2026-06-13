@@ -44,22 +44,31 @@ export async function POST(req: NextRequest) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const session = await (getServerSession as any)(authOptions);
     if (!session?.user?.email) {
-      return NextResponse.json({ error: "Chua dang nhap" }, { status: 401 });
+      return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
     }
 
     const body = await req.json();
-    const { xp = 0, action = "complete_lesson" } = body as {
+    const { xp: rawXp = 0, action = "complete_lesson" } = body as {
       xp: number;
       action: string;
     };
 
-    void action;
+    // Chống gian lận: giới hạn XP tối đa theo từng loại hành động (server-side).
+    const XP_CAP: Record<string, number> = {
+      complete_lesson: 20,
+      complete_quiz: 50,
+      daily_challenge: 100,
+      view_quote: 5,
+    };
+    const cap = XP_CAP[action] ?? 50;
+    const requested = Number(rawXp);
+    const xp = Number.isFinite(requested) ? Math.min(Math.max(0, Math.floor(requested)), cap) : 0;
 
     await connectDB();
 
     const user = await User.findOne({ email: session.user.email });
     if (!user) {
-      return NextResponse.json({ error: "Khong tim thay user" }, { status: 404 });
+      return NextResponse.json({ error: "Không tìm thấy user" }, { status: 404 });
     }
 
     const now = new Date();
@@ -135,7 +144,7 @@ export async function POST(req: NextRequest) {
     });
   } catch (error) {
     console.error("[POST /api/user/progress]", error);
-    return NextResponse.json({ error: "Loi server" }, { status: 500 });
+    return NextResponse.json({ error: "Lỗi server" }, { status: 500 });
   }
 }
 
@@ -144,7 +153,7 @@ export async function GET() {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const session = await (getServerSession as any)(authOptions);
     if (!session?.user?.email) {
-      return NextResponse.json({ error: "Chua dang nhap" }, { status: 401 });
+      return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
     }
 
     await connectDB();
@@ -153,12 +162,12 @@ export async function GET() {
       .lean();
 
     if (!user) {
-      return NextResponse.json({ error: "Khong tim thay user" }, { status: 404 });
+      return NextResponse.json({ error: "Không tìm thấy user" }, { status: 404 });
     }
 
     return NextResponse.json(user);
   } catch (error) {
     console.error("[GET /api/user/progress]", error);
-    return NextResponse.json({ error: "Loi server" }, { status: 500 });
+    return NextResponse.json({ error: "Lỗi server" }, { status: 500 });
   }
 }

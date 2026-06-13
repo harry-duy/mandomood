@@ -7,6 +7,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { analyzeImageContent, analyzeTextContent } from "@/lib/openai";
+import { checkRateLimit, getRateLimitHeaders } from "@/lib/ratelimit";
 
 function buildFallbackLesson(text: string) {
   const source = text.trim() || "No readable text";
@@ -57,6 +58,13 @@ function buildFallbackLesson(text: string) {
 
 // Next.js 15 App Router: dung Request.formData()
 export async function POST(req: NextRequest) {
+  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
+  if (!checkRateLimit(ip, 5)) {
+    return NextResponse.json(
+      { error: "Quá nhiều yêu cầu. Vui lòng thử lại sau 1 phút." },
+      { status: 429, headers: getRateLimitHeaders(ip, 5) }
+    );
+  }
   let fallbackText = "";
 
   try {
@@ -68,7 +76,7 @@ export async function POST(req: NextRequest) {
       const file = formData.get("file") as File | null;
 
       if (!file) {
-        return NextResponse.json({ error: "Khong tim thay file" }, { status: 400 });
+        return NextResponse.json({ error: "Không tìm thấy file" }, { status: 400 });
       }
 
       const maxSize = 10 * 1024 * 1024; // 10MB
@@ -109,7 +117,7 @@ export async function POST(req: NextRequest) {
       const body = await req.json() as { text?: string };
       fallbackText = body.text ?? "";
       if (!body.text?.trim()) {
-        return NextResponse.json({ error: "Thieu truong text" }, { status: 400 });
+        return NextResponse.json({ error: "Thiếu trường text" }, { status: 400 });
       }
       const result = await analyzeTextContent(body.text);
       return NextResponse.json({ success: true, ...result });

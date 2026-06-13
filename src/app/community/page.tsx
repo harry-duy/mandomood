@@ -18,6 +18,7 @@ import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import CommentSection from "@/components/ui/CommentSection";
 import { MOOD_COLORS, MOOD_EMOJI, MOOD_LABEL, LEVEL_LABEL } from "@/lib/utils";
 import { useTTS } from "@/hooks/useTTS";
 
@@ -227,6 +228,9 @@ function PostCard({ post, myEmail, onLike }: {
             <Share2 className="w-3.5 h-3.5" />
           </button>
         </div>
+
+        {/* Comments */}
+        <CommentSection postId={post._id} />
       </div>
     </motion.div>
   );
@@ -335,7 +339,7 @@ function PostForm({ onPosted }: { onPosted: (post: Post) => void }) {
                   className="w-full rounded-xl p-3 text-base resize-none outline-none border border-white/10 focus:border-[var(--mm-red)] transition-colors bg-white/5"
                   style={{ color: "var(--mm-text)" }}
                   rows={2}
-                  placeholder="再难的路，走着走着就习惯了。"
+                  placeholder="再难的路，走着走着就习惯了。" aria-label="再难的路，走着走着就习惯了。"
                   value={form.chinese_text}
                   onChange={e => setForm(f => ({ ...f, chinese_text: e.target.value }))}
                 />
@@ -349,7 +353,7 @@ function PostForm({ onPosted }: { onPosted: (post: Post) => void }) {
                 <input
                   className="w-full rounded-xl p-3 text-sm outline-none border border-white/10 focus:border-[var(--mm-red)] transition-colors bg-white/5"
                   style={{ color: "var(--mm-text)" }}
-                  placeholder="Zài nán de lù..."
+                  placeholder="Zài nán de lù..." aria-label="Zài nán de lù"
                   value={form.pinyin}
                   onChange={e => setForm(f => ({ ...f, pinyin: e.target.value }))}
                 />
@@ -364,7 +368,7 @@ function PostForm({ onPosted }: { onPosted: (post: Post) => void }) {
                   className="w-full rounded-xl p-3 text-sm resize-none outline-none border border-white/10 focus:border-[var(--mm-red)] transition-colors bg-white/5"
                   style={{ color: "var(--mm-text)" }}
                   rows={2}
-                  placeholder="Con đường dù khó đến đâu, đi mãi rồi cũng quen."
+                  placeholder="Con đường dù khó đến đâu, đi mãi rồi cũng quen." aria-label="Con đường dù khó đến đâu, đi mãi rồi cũng quen"
                   value={form.translation}
                   onChange={e => setForm(f => ({ ...f, translation: e.target.value }))}
                 />
@@ -429,7 +433,7 @@ function PostForm({ onPosted }: { onPosted: (post: Post) => void }) {
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function CommunityPage() {
   const { data: session } = useSession();
-  const [posts, setPosts] = useState<Post[]>([]);
+  const [posts, setPosts] = useState<Post[]>(DEMO_POSTS);
   const [loading, setLoading] = useState(true);
   const [sort, setSort] = useState<"new" | "hot">("new");
   const [moodFilter, setMoodFilter] = useState("all");
@@ -571,9 +575,6 @@ export default function CommunityPage() {
           </div>
         )}
       </div>
-
-      {/* FAB + Form */}
-      <PostForm onPosted={(post) => setPosts(prev => [post, ...prev])} />
     </main>
   );
 }

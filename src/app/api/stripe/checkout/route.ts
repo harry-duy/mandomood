@@ -50,6 +50,12 @@ export async function POST(req: NextRequest) {
         user_email: session.user.email as string,
         plan,
       },
+      // Gắn metadata vào subscription để webhook hủy gói tìm được user
+      ...(isLifetime ? {} : {
+        subscription_data: {
+          metadata: { user_email: session.user.email as string, plan },
+        },
+      }),
       allow_promotion_codes: true,
     });
 

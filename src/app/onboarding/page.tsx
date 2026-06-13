@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { ChevronRight, ChevronLeft, Check, Sparkles } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
 import { cn } from "@/lib/utils";
+import { trackEvent } from "@/lib/analytics";
 
 // ─── Data ─────────────────────────────────────────────────────────────────────
 
@@ -63,6 +64,7 @@ export default function OnboardingPage() {
   const handleFinish = () => {
     setOnboarding({ level, goal, favMoods, dailyGoal });
     completeOnboarding();
+    trackEvent("onboarding_completed");
     router.push("/feed");
   };
 

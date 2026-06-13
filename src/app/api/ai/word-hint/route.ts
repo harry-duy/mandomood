@@ -8,8 +8,16 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { getWordHint, checkGuess } from "@/lib/openai";
+import { checkRateLimit, getRateLimitHeaders } from "@/lib/ratelimit";
 
 export async function POST(req: NextRequest) {
+  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
+  if (!checkRateLimit(ip, 30)) {
+    return NextResponse.json(
+      { error: "Quá nhiều yêu cầu. Vui lòng thử lại sau 1 phút." },
+      { status: 429, headers: getRateLimitHeaders(ip, 30) }
+    );
+  }
   let selectedText = "";
   let userGuess: string | undefined;
 
@@ -24,7 +32,7 @@ export async function POST(req: NextRequest) {
     userGuess = body.userGuess;
 
     if (!selectedText?.trim()) {
-      return NextResponse.json({ error: "Thieu selectedText" }, { status: 400 });
+      return NextResponse.json({ error: "Thiếu selectedText" }, { status: 400 });
     }
 
     // Neu co guess: check xem dung khong
@@ -45,7 +53,7 @@ export async function POST(req: NextRequest) {
         mode: "check",
         correct: false,
         score: 50,
-        actual_meaning: "Chua cham duoc bang AI luc nay. Hay nhin lai ngu canh va thu doan bang mot cach dien dat khac.",
+        actual_meaning: "Chưa chấm được bằng AI lúc này. Hãy nhìn lại ngữ cảnh và thử đoán bằng một cách diễn đạt khác.",
         feedback: "Chua xac nhan dung/sai bang AI, nhung cach hoc doan nghia tu ngu canh la dung huong.",
       });
     }

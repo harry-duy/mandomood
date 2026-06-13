@@ -5,12 +5,14 @@ import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
+import { trackEvent } from "@/lib/analytics";
 
 export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 
   const handleGoogleLogin = async () => {
+    trackEvent("login_click");
     setLoading(true);
     try {
       await signIn("google", { callbackUrl: "/feed" });
@@ -49,12 +51,22 @@ export default function LoginPage() {
           </p>
           <p className="text-xs text-[var(--text-muted)] mb-0.5">Yǒu yuán zàijiàn</p>
           <p className="text-sm text-[var(--text-muted)] italic">
-            "Nếu có duyên thì gặp lại"
+            &ldquo;Nếu có duyên thì gặp lại&rdquo;
           </p>
         </div>
 
         {/* Login options */}
         <div className="space-y-3">
+          {/* Ưu đãi trial */}
+          <div className="mb-4 p-3 rounded-xl bg-mm-gold/10 border border-mm-gold/30 text-center">
+            <p className="text-sm font-medium" style={{ color: "#D4AF37" }}>
+              🎁 Đăng nhập lần đầu = tặng 30 ngày Premium
+            </p>
+            <p className="text-xs opacity-60 mt-0.5" style={{ color: "var(--mm-text)" }}>
+              Không cần thẻ. Hết hạn tự chuyển về gói miễn phí.
+            </p>
+          </div>
+
           {/* Google */}
           <motion.button
             onClick={handleGoogleLogin}
@@ -79,7 +91,7 @@ export default function LoginPage() {
 
           {/* Skip / Guest */}
           <button
-            onClick={() => window.location.href = "/"}
+            onClick={() => router.push("/")}
             className="w-full py-3 text-sm text-[var(--text-muted)] hover:text-white transition-colors"
           >
             Dùng thử không đăng nhập →

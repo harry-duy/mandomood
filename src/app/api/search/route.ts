@@ -27,7 +27,9 @@ export async function GET(req: NextRequest) {
     await connectDB();
 
     // Build regex cho fallback search (khi chưa có text index)
-    const regex = new RegExp(q, "i");
+    // Escape ký tự đặc biệt → chống ReDoS / regex injection từ input người dùng
+    const safeQ = q.slice(0, 100).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const regex = new RegExp(safeQ, "i");
 
     const results: {
       quotes: unknown[];

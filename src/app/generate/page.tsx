@@ -1,16 +1,26 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { playTTS } from "@/hooks/useTTS";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Sparkles, RefreshCw, Save, Volume2,
-  BookOpen, Globe, ChevronRight
+  BookOpen, Globe, ChevronRight, History, Clock, ChevronDown, BookMarked
 } from "lucide-react";
 import { VocabList } from "@/components/ui/VocabCard";
+import { StoryKaraoke } from "@/components/ui/StoryKaraoke";
+import StoryQuiz from "@/components/ui/StoryQuiz";
+import { QuoteCardSkeleton } from "@/components/ui/LoadingSkeleton";
+import { addCustomPassage } from "@/lib/readingLibrary";
+import { recordStoriesDeleted } from "@/lib/syncDeleted";
+import { postJSON } from "@/lib/fetchRetry";
+import { trackEvent } from "@/lib/analytics";
+import QuotaBadge from "@/components/ui/QuotaBadge";
+import ShareCard from "@/components/ui/ShareCard";
 import { cn } from "@/lib/utils";
-import { MOOD_COLORS, MOOD_EMOJI, MOOD_LABEL } from "@/lib/utils";
+import { MOOD_COLORS, MOOD_EMOJI, MOOD_LABEL, readJSON, writeJSON } from "@/lib/utils";
 import { toast } from "sonner";
+import { useProgress } from "@/hooks/useProgress";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -56,7 +66,35 @@ const THEME_SUGGESTIONS = [
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
+interface HistoryItem {
+  id: string;
+  story: GeneratedStory;
+  theme: string;
+  level: Level;
+  createdAt: string;
+}
+
+const HISTORY_KEY = "mm_story_history";
+const MAX_HISTORY = 50;
+
+/** Tách văn bản tiếng Trung thành từng câu (giữ lại dấu câu 。！？；…). */
+function splitChineseSentences(text: string): string[] {
+  if (!text) return [];
+  const parts = text.match(/[^。！？；\n]+[。！？；]?/g);
+  return (parts ?? [text]).map((s) => s.trim()).filter(Boolean);
+}
+
+function loadHistory(): HistoryItem[] {
+  return readJSON<HistoryItem[]>(HISTORY_KEY, []);
+}
+function saveHistory(item: HistoryItem) {
+  const prev = loadHistory();
+  const next = [item, ...prev.filter(h => h.id !== item.id)].slice(0, MAX_HISTORY);
+  writeJSON(HISTORY_KEY, next);
+}
+
 export default function GeneratePage() {
+  const { awardXP } = useProgress();
   const [selectedMood, setSelectedMood] = useState<Mood>("healing");
   const [selectedLevel, setSelectedLevel] = useState<Level>("hsk2");
   const [theme, setTheme] = useState("");
@@ -64,38 +102,84 @@ export default function GeneratePage() {
   const [story, setStory] = useState<GeneratedStory | null>(null);
   const [showPinyin, setShowPinyin] = useState(true);
   const [saved, setSaved] = useState(false);
+  const [history, setHistory] = useState<HistoryItem[]>([]);
+  const [showHistory, setShowHistory] = useState(false);
+  const [activeTab, setActiveTab] = useState<"generate" | "history">("generate");
+  const [karaoke, setKaraoke] = useState(false);
+  const [savedToReading, setSavedToReading] = useState(false);
+
+  useEffect(() => { setHistory(loadHistory()); }, []);
+
+  // Lưu truyện AI hiện tại vào thư viện đọc (/reading), dùng vocabulary làm từ tra cứu.
+  const handleSaveToReading = () => {
+    if (!story) return;
+    const ok = addCustomPassage({
+      id: `gen-${story.title}-${selectedLevel}`,
+      title: story.title,
+      titleVi: story.translation.slice(0, 60),
+      level: selectedLevel.toUpperCase(),
+      mood: MOOD_LABEL[selectedMood] ?? selectedMood,
+      moodColor: MOOD_COLORS[selectedMood] ?? "#E8634A",
+      words: (story.vocabulary ?? []).map((v) => ({
+        hanzi: v.hanzi, pinyin: v.pinyin, meaning: v.meaning,
+      })),
+      translation: story.translation,
+      culturalNote: story.cultural_note ?? "",
+    });
+    setSavedToReading(true);
+    toast(ok ? "📖 Đã thêm vào thư viện Đọc!" : "Truyện này đã có trong thư viện Đọc", { duration: 2000 });
+  };
 
   const handleGenerate = async () => {
     setLoading(true);
     setSaved(false);
+    setSavedToReading(false);
     setStory(null);
 
     try {
-      const res = await fetch("/api/ai/story", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      const { story: generated } = await postJSON<{ story: GeneratedStory }>(
+        "/api/ai/story",
+        {
           level: selectedLevel,
           mood: selectedMood,
           theme: theme.trim() || undefined,
           save: false,
-        }),
-      });
-
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error ?? "Lỗi generate");
-      }
-
-      const { story: generated } = await res.json();
+        },
+        {
+          timeoutMs: 45_000,
+          onRetry: (attempt) =>
+            toast(`Mạng chập chờn, đang thử lại (${attempt})...`, { duration: 1500 }),
+        }
+      );
       setStory(generated);
+      trackEvent("story_generated");
+      awardXP(20, "Tao truyen AI");
+      const histItem: HistoryItem = {
+        id: Date.now().toString(),
+        story: generated,
+        theme: theme.trim() || "",
+        level: selectedLevel,
+        createdAt: new Date().toISOString(),
+      };
+      saveHistory(histItem);
+      setHistory(loadHistory());
       toast("✨ Câu chuyện đã được tạo!", { duration: 2000 });
     } catch (error) {
-      toast.error(
-        error instanceof Error
-          ? error.message
-          : "Lỗi kết nối AI. Kiểm tra OPENAI_API_KEY trong .env.local"
-      );
+      const status = (error as { status?: number })?.status;
+      if (status === 402) {
+        // Hết lượt miễn phí → đo nhu cầu nâng cấp + CTA
+        trackEvent("upgrade_required_hit");
+        toast.error(error instanceof Error ? error.message : "Hết lượt miễn phí hôm nay", {
+          duration: 6000,
+          action: { label: "Nâng cấp 👑", onClick: () => { window.location.href = "/pricing"; } },
+        });
+      } else {
+        toast.error(
+          error instanceof Error
+            ? error.message
+            : "Lỗi kết nối AI. Kiểm tra GEMINI_API_KEY trong .env.local"
+        );
+      }
     } finally {
       setLoading(false);
     }
@@ -130,6 +214,71 @@ export default function GeneratePage() {
 
   return (
     <div className="min-h-screen max-w-lg mx-auto px-4 py-6">
+      {/* Tab switcher */}
+      <div className="flex gap-1 mb-5 bg-surface rounded-2xl p-1 border border-[rgba(255,255,255,0.06)]">
+        {(["generate", "history"] as const).map((tab) => (
+          <button key={tab} onClick={() => setActiveTab(tab)}
+            className={cn("flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium transition-all",
+              activeTab === tab ? "bg-mm-red text-white" : "text-[var(--text-muted)]"
+            )}>
+            {tab === "generate" ? <><Sparkles size={13} /> Tạo mới</> : (
+              <><History size={13} /> Lịch sử {history.length > 0 && (
+                <span className="ml-1 bg-mm-gold text-black text-xs px-1.5 rounded-full">{history.length}</span>
+              )}</>
+            )}
+          </button>
+        ))}
+      </div>
+
+      {/* History tab */}
+      {activeTab === "history" && (
+        <div className="space-y-3">
+          {history.length === 0 ? (
+            <div className="text-center py-16 text-[var(--text-muted)]">
+              <History size={36} className="mx-auto mb-3 opacity-30" />
+              <p className="mb-1">Chưa có câu chuyện nào</p>
+              <p className="text-xs">Tạo story đầu tiên để xem ở đây</p>
+            </div>
+          ) : (
+            <>
+              {history.map((item) => (
+                <motion.div key={item.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+                  className="bg-surface rounded-2xl border border-[rgba(255,255,255,0.07)] overflow-hidden">
+                  <button className="w-full flex items-start gap-3 p-4 text-left"
+                    onClick={() => { setStory(item.story); setSelectedLevel(item.level); setTheme(item.theme); setActiveTab("generate"); setSaved(false); }}>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span>{MOOD_EMOJI[item.story.mood as keyof typeof MOOD_EMOJI]}</span>
+                        <span className="font-medium text-sm truncate">{item.story.title}</span>
+                      </div>
+                      <p className="font-noto text-xs text-[var(--text-muted)] truncate mb-1.5">{item.story.chinese_text.split("\n")[0]}</p>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs px-2 py-0.5 rounded-full bg-surface2 text-[var(--text-muted)]">{item.level.toUpperCase()}</span>
+                        <span className="text-xs text-[var(--text-muted)] flex items-center gap-1">
+                          <Clock size={10} />{new Date(item.createdAt).toLocaleDateString("vi-VN")}
+                        </span>
+                      </div>
+                    </div>
+                    <ChevronRight size={14} className="text-[var(--text-muted)] mt-1 shrink-0" />
+                  </button>
+                </motion.div>
+              ))}
+              <button onClick={() => {
+                  // Tombstone từng truyện để sau khi sync chúng không quay lại từ cloud
+                  recordStoriesDeleted(history.map((h) => h.id));
+                  localStorage.removeItem("mm_story_history");
+                  setHistory([]);
+                }}
+                className="w-full py-2 text-xs text-[var(--text-muted)] hover:text-red-400 transition-colors text-center">
+                Xóa toàn bộ lịch sử
+              </button>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* Generate tab */}
+      {activeTab === "generate" && <>
       {/* Header */}
       <div className="mb-6">
         <div className="flex items-center gap-2 mb-1">
@@ -207,7 +356,7 @@ export default function GeneratePage() {
           <input
             value={theme}
             onChange={(e) => setTheme(e.target.value)}
-            placeholder="Ví dụ: mùa thu, tình bạn xa..."
+            placeholder="Ví dụ: mùa thu, tình bạn xa..." aria-label="Ví dụ: mùa thu, tình bạn xa"
             className="input"
             maxLength={50}
           />
@@ -248,7 +397,17 @@ export default function GeneratePage() {
             <><Sparkles size={16} /> Tạo câu chuyện ✨</>
           )}
         </motion.button>
+
+        {/* Lượt miễn phí còn lại hôm nay / trạng thái Premium */}
+        <QuotaBadge feature="story" />
       </div>
+
+      {/* Skeleton trong lúc AI tạo truyện (tránh màn hình trống) */}
+      {loading && !story && (
+        <div className="mt-2">
+          <QuoteCardSkeleton />
+        </div>
+      )}
 
       {/* Generated story */}
       <AnimatePresence>
@@ -293,28 +452,51 @@ export default function GeneratePage() {
 
               <h2 className="font-playfair text-lg font-bold mb-4">{story.title}</h2>
 
-              {/* Chinese text */}
-              <p className="font-chinese text-xl font-bold leading-loose tracking-wider text-[#F5F0EB] mb-2 whitespace-pre-line">
-                {story.chinese_text}
-              </p>
+              {/* Chinese text — chế độ karaoke (đọc + sáng chữ) hoặc tĩnh */}
+              {karaoke ? (
+                <StoryKaraoke
+                  text={story.chinese_text}
+                  pinyin={story.pinyin}
+                  showPinyin={showPinyin}
+                  className="mb-2"
+                />
+              ) : (
+                <>
+                  <p className="font-chinese text-xl font-bold leading-loose tracking-wider text-[#F5F0EB] mb-2 whitespace-pre-line">
+                    {splitChineseSentences(story.chinese_text).map((sentence, si) => (
+                      <span
+                        key={si}
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => void playTTS(sentence)}
+                        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); void playTTS(sentence); } }}
+                        title="Nhấn để nghe câu này"
+                        className="cursor-pointer rounded-md px-0.5 transition-colors hover:bg-mm-red/15 active:bg-mm-red/25"
+                      >
+                        {sentence}
+                      </span>
+                    ))}
+                  </p>
 
-              {/* Pinyin */}
-              <div
-                className={cn(
-                  "transition-all duration-300 overflow-hidden",
-                  showPinyin ? "max-h-40 opacity-100 mb-2" : "max-h-0 opacity-0 mb-0"
-                )}
-              >
-                <p className="text-xs text-mm-gold/60 tracking-wider whitespace-pre-line">
-                  {story.pinyin}
-                </p>
-              </div>
+                  {/* Pinyin */}
+                  <div
+                    className={cn(
+                      "transition-all duration-300 overflow-hidden",
+                      showPinyin ? "max-h-40 opacity-100 mb-2" : "max-h-0 opacity-0 mb-0"
+                    )}
+                  >
+                    <p className="text-xs text-mm-gold/60 tracking-wider whitespace-pre-line">
+                      {story.pinyin}
+                    </p>
+                  </div>
+                </>
+              )}
 
               <div className="w-8 h-px bg-[rgba(255,255,255,0.1)] mb-3" />
 
               {/* Translation */}
               <p className="text-sm text-[var(--text-muted)] italic font-light leading-relaxed whitespace-pre-line">
-                "{story.translation}"
+                &ldquo;{story.translation}&rdquo;
               </p>
 
               {/* Actions */}
@@ -326,31 +508,73 @@ export default function GeneratePage() {
                   <Volume2 size={13} /> Nghe
                 </button>
                 <button
+                  onClick={() => setKaraoke((v) => !v)}
+                  className={cn(
+                    "flex items-center gap-1.5 text-xs px-3 py-2 rounded-full transition-colors",
+                    karaoke
+                      ? "bg-mm-red/20 text-mm-red"
+                      : "bg-surface2 text-[var(--text-muted)] hover:text-white"
+                  )}
+                >
+                  🎤 Karaoke
+                </button>
+                <button
                   onClick={() => setShowPinyin(!showPinyin)}
                   className="flex items-center gap-1.5 text-xs bg-surface2 text-[var(--text-muted)] hover:text-white px-3 py-2 rounded-full transition-colors"
                 >
                   {showPinyin ? "Ẩn pinyin" : "Hiện pinyin"}
                 </button>
-                <button
-                  onClick={handleSave}
-                  disabled={saved}
-                  className={cn(
-                    "flex items-center gap-1.5 text-xs px-3 py-2 rounded-full transition-all ml-auto",
-                    saved
-                      ? "bg-mm-sage/20 text-mm-sage"
-                      : "bg-surface2 text-[var(--text-muted)] hover:text-white"
-                  )}
-                >
-                  <Save size={13} /> {saved ? "Đã lưu" : "Lưu lại"}
-                </button>
+                <div className="ml-auto flex items-center gap-2">
+                  <ShareCard
+                    quote={{
+                      _id: `story-${story.chinese_text.slice(0, 8)}-${story.mood}`,
+                      chinese_text: story.chinese_text,
+                      pinyin: story.pinyin,
+                      translation: story.translation,
+                      mood: story.mood,
+                      author: story.title,
+                    }}
+                  />
+                  <button
+                    onClick={handleSave} aria-label="Lưu"
+                    disabled={saved}
+                    className={cn(
+                      "flex items-center gap-1.5 text-xs px-3 py-2 rounded-full transition-all",
+                      saved
+                        ? "bg-mm-sage/20 text-mm-sage"
+                        : "bg-surface2 text-[var(--text-muted)] hover:text-white"
+                    )}
+                  >
+                    <Save size={13} /> {saved ? "Đã lưu" : "Lưu lại"}
+                  </button>
+                </div>
               </div>
             </div>
+
+            {/* Lưu vào thư viện Đọc */}
+            <button
+              onClick={handleSaveToReading}
+              disabled={savedToReading}
+              className={cn(
+                "w-full flex items-center justify-center gap-2 py-3 rounded-2xl text-sm font-medium transition-all",
+                savedToReading
+                  ? "bg-mm-sage/20 text-mm-sage"
+                  : "bg-surface2 text-[var(--text-muted)] hover:text-white border border-[rgba(255,255,255,0.08)] hover:border-[rgba(232,80,74,0.3)]"
+              )}
+            >
+              <BookMarked size={14} /> {savedToReading ? "Đã thêm vào thư viện Đọc" : "Lưu vào thư viện Đọc"}
+            </button>
 
             {/* Vocabulary section */}
             {story.vocabulary && story.vocabulary.length > 0 && (
               <div className="card">
                 <VocabList vocabulary={story.vocabulary} />
               </div>
+            )}
+
+            {/* Quiz hiểu nhanh + XP */}
+            {story.vocabulary && story.vocabulary.length >= 4 && (
+              <StoryQuiz vocabulary={story.vocabulary} />
             )}
 
             {/* Grammar notes */}
@@ -396,6 +620,8 @@ export default function GeneratePage() {
       </AnimatePresence>
 
       <div className="h-8" />
+      </>
+    }
     </div>
   );
 }

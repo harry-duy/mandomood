@@ -51,11 +51,11 @@ export default function QuoteCard({ quote, isDaily = false, className }: QuoteCa
           body: JSON.stringify({ quoteId: quote._id }),
         });
         if (!res.ok) throw new Error("API error");
-        toast(nowSaved ? "Da luu vao bo suu tap" : "Da bo luu", { duration: 1500 });
+        toast(nowSaved ? "Đã lưu vào bộ sưu tập" : "Đã bỏ lưu", { duration: 1500 });
       } catch {
         // Revert optimistic update on failure
         toggleSaveQuote(quote._id);
-        toast("Loi luu - thu lai sau", { duration: 2000 });
+        toast("Lỗi lưu — thử lại sau", { duration: 2000 });
       } finally {
         setSaving(false);
       }
@@ -63,8 +63,8 @@ export default function QuoteCard({ quote, isDaily = false, className }: QuoteCa
       // Not logged in: save locally only
       toast(
         nowSaved
-          ? "Da luu (dang nhap de luu vinh vien)"
-          : "Da bo luu",
+          ? "Đã lưu (đăng nhập để lưu vĩnh viễn)"
+          : "Đã bỏ lưu",
         { duration: 1800 }
       );
     }
@@ -97,7 +97,7 @@ export default function QuoteCard({ quote, isDaily = false, className }: QuoteCa
         <div className="flex items-center gap-2">
           {isDaily && (
             <span className="badge bg-mm-red/10 text-mm-red text-[10px]">
-              Hom nay
+              Hôm nay
             </span>
           )}
           <span
@@ -115,7 +115,7 @@ export default function QuoteCard({ quote, isDaily = false, className }: QuoteCa
           onClick={togglePinyin}
           className="text-[10px] text-[var(--text-muted)] hover:text-white border border-[rgba(255,255,255,0.08)] px-2.5 py-1 rounded-full transition-colors"
         >
-          {showPinyin ? "An pinyin" : "Hien pinyin"}
+          {showPinyin ? "Ẩn pinyin" : "Hiện pinyin"}
         </button>
       </div>
 
@@ -157,7 +157,7 @@ export default function QuoteCard({ quote, isDaily = false, className }: QuoteCa
               size={14}
               className={cn("transition-transform", showNote && "rotate-180")}
             />
-            Ghi chu van hoa
+            Ghi chú văn hóa
           </button>
           <div
             className={cn(
@@ -184,7 +184,7 @@ export default function QuoteCard({ quote, isDaily = false, className }: QuoteCa
           )}
         >
           <Volume2 size={15} className={cn(isPlaying && "animate-pulse")} />
-          {isPlaying ? "Dang phat..." : "Nghe"}
+          {isPlaying ? "Đang phát..." : "Nghe"}
         </button>
 
         <button
@@ -197,7 +197,7 @@ export default function QuoteCard({ quote, isDaily = false, className }: QuoteCa
               : "bg-surface2 text-[var(--text-muted)] hover:text-mm-red",
             saving && "opacity-50"
           )}
-          aria-label="Luu"
+          aria-label="Lưu"
         >
           <Heart
             size={16}
@@ -210,7 +210,7 @@ export default function QuoteCard({ quote, isDaily = false, className }: QuoteCa
 
         {/* Login hint khi chua dang nhap */}
         {!session?.user && saved && (
-          <span className="text-[9px] text-[#5A5450] ml-auto">Dang nhap de luu vinh vien</span>
+          <span className="text-[9px] text-[#5A5450] ml-auto">Đăng nhập để lưu vĩnh viễn</span>
         )}
       </div>
     </div>

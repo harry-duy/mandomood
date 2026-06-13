@@ -6,8 +6,16 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { gradeAnswer } from "@/lib/openai";
+import { checkRateLimit, getRateLimitHeaders } from "@/lib/ratelimit";
 
 export async function POST(req: NextRequest) {
+  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
+  if (!checkRateLimit(ip, 15)) {
+    return NextResponse.json(
+      { error: "Quá nhiều yêu cầu. Vui lòng thử lại sau 1 phút." },
+      { status: 429, headers: getRateLimitHeaders(ip, 15) }
+    );
+  }
   let correctAnswer = "";
   let userAnswer = "";
 
@@ -25,11 +33,11 @@ export async function POST(req: NextRequest) {
     userAnswer = body.userAnswer;
 
     if (!question || !correctAnswer || !userAnswer) {
-      return NextResponse.json({ error: "Thieu truong bat buoc" }, { status: 400 });
+      return NextResponse.json({ error: "Thiếu trường bắt buộc" }, { status: 400 });
     }
 
     if (userAnswer.trim().length === 0) {
-      return NextResponse.json({ error: "Cau tra loi rong" }, { status: 400 });
+      return NextResponse.json({ error: "Câu trả lời rỗng" }, { status: 400 });
     }
 
     const result = await gradeAnswer(questionType, question, correctAnswer, userAnswer, context);
@@ -51,7 +59,7 @@ export async function POST(req: NextRequest) {
           type: "meaning",
           user_input: userAnswer,
           correct: correctAnswer,
-          explanation: "AI cham chi tiet dang tam thoi khong kha dung. Hay so sanh cau tra loi voi dap an mau va thu lai sau.",
+          explanation: "AI chấm chi tiết đang tạm thời không khả dụng. Hãy so sánh câu trả lời với đáp án mẫu và thử lại sau.",
         }],
       feedback: "Da cham bang fallback vi AI provider dang tam thoi loi.",
       suggestion: "Kiem tra GEMINI_API_KEY/GEMINI_MODEL de nhan phan tich loi sai nho nhat nhu thanh dieu, chu Han, ngu phap.",

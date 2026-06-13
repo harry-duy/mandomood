@@ -7,6 +7,9 @@ import { useSession, signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
+import ThemeToggle from "@/components/ui/ThemeToggle";
+import InstallAppMenuItem from "@/components/ui/InstallPrompt";
+import SyncMenuItem from "@/components/ui/SyncMenuItem";
 
 export default function Navbar() {
   const { data: session } = useSession();
@@ -46,6 +49,9 @@ export default function Navbar() {
 
       {/* Right actions */}
       <div className="flex items-center gap-2">
+        {/* Theme toggle sáng/tối */}
+        <ThemeToggle />
+
         {/* Search */}
         <button
           onClick={() => router.push("/search")}
@@ -69,7 +75,7 @@ export default function Navbar() {
         {/* Avatar / Login */}
         <div className="relative">
           <button
-            onClick={() => user ? setShowMenu(!showMenu) : router.push("/login")}
+            onClick={() => setShowMenu(!showMenu)}
             className={cn(
               "w-9 h-9 rounded-full overflow-hidden flex items-center justify-center",
               "text-white text-sm font-semibold transition-all",
@@ -86,47 +92,107 @@ export default function Navbar() {
           </button>
 
           {/* Dropdown menu */}
-          {showMenu && user && (
+          {showMenu && (
             <>
               <div
                 className="fixed inset-0 z-40"
                 onClick={() => setShowMenu(false)}
               />
-              <div className="absolute right-0 top-11 z-50 w-48 bg-[#1A1A1A] border border-[rgba(255,255,255,0.08)] rounded-2xl shadow-2xl overflow-hidden">
+              <div className="absolute right-0 top-11 z-50 w-56 bg-[#1A1A1A] border border-[rgba(255,255,255,0.08)] rounded-2xl shadow-2xl overflow-hidden">
                 {/* User info */}
+                {user ? (
                 <div className="px-4 py-3 border-b border-[rgba(255,255,255,0.06)]">
                   <p className="text-sm font-semibold truncate">{user.name}</p>
                   <p className="text-xs text-[#8A8078] truncate">{user.email}</p>
+                  {(() => {
+                    const u = user as { premiumSource?: string; trialDaysLeft?: number };
+                    if (u.premiumSource === "paid")
+                      return <p className="text-xs mt-1 text-[#D4AF37]">👑 Premium</p>;
+                    if (u.premiumSource === "trial")
+                      return <p className="text-xs mt-1 text-[#D4AF37]">🎁 Dùng thử Premium — còn {u.trialDaysLeft} ngày</p>;
+                    return (
+                      <Link href="/pricing" onClick={() => setShowMenu(false)}
+                        className="text-xs mt-1 inline-block text-[#E8634A] hover:underline">
+                        Hết hạn dùng thử — Nâng cấp 👑
+                      </Link>
+                    );
+                  })()}
                 </div>
+                ) : (
+                <div className="px-4 py-3 border-b border-[rgba(255,255,255,0.06)]">
+                  <p className="text-sm font-semibold text-[#E8634A] mb-2">Chưa đăng nhập</p>
+                  <button onClick={() => { router.push("/login"); setShowMenu(false); }}
+                    className="w-full py-2 bg-[#E8634A] text-white text-xs rounded-xl font-medium">
+                    Đăng nhập / Đăng ký
+                  </button>
+                </div>
+                )}
                 {/* Menu items */}
-                <div className="py-1">
-                  <Link
-                    href="/profile"
-                    onClick={() => setShowMenu(false)}
-                    className="flex items-center gap-2 px-4 py-2.5 text-sm text-[#F5F0EB] hover:bg-[#242424] transition-colors"
-                  >
-                    Hồ sơ của tôi
+                <div className="py-1 max-h-[70vh] overflow-y-auto">
+                  {/* Hồ sơ */}
+                  <Link href="/generate" onClick={() => setShowMenu(false)}
+                    className="flex items-center gap-2 px-4 py-2.5 text-sm text-[#F5F0EB] hover:bg-[#242424] transition-colors">
+                    ✨ Tạo truyện AI
                   </Link>
-                  <Link
-                    href="/generate"
-                    onClick={() => setShowMenu(false)}
-                    className="flex items-center gap-2 px-4 py-2.5 text-sm text-[#F5F0EB] hover:bg-[#242424] transition-colors"
-                  >
-                    ✨ Tạo story AI
+                  <Link href="/feed" onClick={() => setShowMenu(false)}
+                    className="flex items-center gap-2 px-4 py-2.5 text-sm text-[#F5F0EB] hover:bg-[#242424] transition-colors">
+                    📖 Feed bài học
                   </Link>
-                  <Link
-                    href="/smart-lesson"
-                    onClick={() => setShowMenu(false)}
-                    className="flex items-center gap-2 px-4 py-2.5 text-sm text-[#F5F0EB] hover:bg-[#242424] transition-colors"
-                  >
-                    Smart Lesson AI
+                  <Link href="/daily-plan" onClick={() => setShowMenu(false)}
+                    className="flex items-center gap-2 px-4 py-2.5 text-sm text-[#F5F0EB] hover:bg-[#242424] transition-colors">
+                    📋 Kế hoạch hôm nay
                   </Link>
+                  <Link href="/karaoke" onClick={() => setShowMenu(false)}
+                    className="flex items-center gap-2 px-4 py-2.5 text-sm text-[#F5F0EB] hover:bg-[#242424] transition-colors">
+                    🎤 Karaoke luyện nghe & nói
+                  </Link>
+                  <Link href="/profile" onClick={() => setShowMenu(false)}
+                    className="flex items-center gap-2 px-4 py-2.5 text-sm text-[#F5F0EB] hover:bg-[#242424] transition-colors">
+                    👤 Hồ sơ của tôi
+                  </Link>
+                  <Link href="/profile/report" onClick={() => setShowMenu(false)}
+                    className="flex items-center gap-2 px-4 py-2.5 text-sm text-[#F5F0EB] hover:bg-[#242424] transition-colors">
+                    📊 Báo cáo học tập
+                  </Link>
+                  <Link href="/flashcards" onClick={() => setShowMenu(false)}
+                    className="flex items-center gap-2 px-4 py-2.5 text-sm text-[#F5F0EB] hover:bg-[#242424] transition-colors">
+                    🎴 Flashcard SRS
+                  </Link>
+                  {/* Divider */}
+                  <div className="border-t border-[rgba(255,255,255,0.06)] my-1" />
+                  {/* Khám phá — toàn bộ công cụ gom về 1 trang */}
+                  <Link href="/explore" onClick={() => setShowMenu(false)}
+                    className="flex items-center gap-2 px-4 py-2.5 text-sm text-[#F5F0EB] hover:bg-[#242424] transition-colors">
+                    🧭 Khám phá công cụ
+                  </Link>
+                  <Link href="/ai-tutor" onClick={() => setShowMenu(false)}
+                    className="flex items-center gap-2 px-4 py-2.5 text-sm text-[#F5F0EB] hover:bg-[#242424] transition-colors">
+                    🤖 AI Gia sư
+                  </Link>
+                  {/* Divider */}
+                  <div className="border-t border-[rgba(255,255,255,0.06)] my-1" />
+                  <InstallAppMenuItem onDone={() => setShowMenu(false)} />
+                  {user && <SyncMenuItem onDone={() => setShowMenu(false)} />}
+                  {/* Other */}
+                  <Link href="/pricing" onClick={() => setShowMenu(false)}
+                    className="flex items-center gap-2 px-4 py-2.5 text-sm text-[#E8A838] hover:bg-[#242424] transition-colors">
+                    💎 Nâng cấp Premium
+                  </Link>
+                  <Link href="/blog" onClick={() => setShowMenu(false)}
+                    className="flex items-center gap-2 px-4 py-2.5 text-sm text-[#F5F0EB] hover:bg-[#242424] transition-colors">
+                    📝 Blog học tiếng Trung
+                  </Link>
+                  <Link href="/about" onClick={() => setShowMenu(false)}
+                    className="flex items-center gap-2 px-4 py-2.5 text-sm text-[#F5F0EB] hover:bg-[#242424] transition-colors">
+                    🌸 Về MandoMood
+                  </Link>
+                  {user && (
                   <button
                     onClick={() => { signOut({ callbackUrl: "/" }); setShowMenu(false); }}
-                    className="w-full text-left flex items-center gap-2 px-4 py-2.5 text-sm text-[#E8634A] hover:bg-[#242424] transition-colors"
-                  >
+                    className="w-full text-left flex items-center gap-2 px-4 py-2.5 text-sm text-[#E8634A] hover:bg-[#242424] transition-colors">
                     Đăng xuất
                   </button>
+                  )}
                 </div>
               </div>
             </>

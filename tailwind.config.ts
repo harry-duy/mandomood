@@ -31,6 +31,7 @@ const config: Config = {
         playfair: ["Playfair Display", "serif"],
         inter: ["Inter", "sans-serif"],
         noto: ["Noto Serif SC", "serif"],
+        chinese: ["Noto Serif SC", "serif"],
       },
       animation: {
         "fade-up": "fadeUp 0.5s ease forwards",

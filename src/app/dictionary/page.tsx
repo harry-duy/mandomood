@@ -7,7 +7,7 @@ import { Search, Volume2, BookOpen, Star } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 
-// ─── Data — 60 từ HSK phổ biến nhất ──────────────────────────────────────────
+// ─── Data — 90+ từ HSK cảm xúc & đời sống ──────────────────────────────────────────
 
 interface Word {
   hanzi: string;
@@ -97,6 +97,83 @@ const WORDS: Word[] = [
     example_cn:"看到你哭，我很心疼。", example_vn:"Thấy bạn khóc, tôi rất xót xa." },
   { hanzi:"执着", pinyin:"zhízhuó", meaning:"kiên định, khăng khăng", level:"hsk4", type:"tính từ", emotional:true,
     example_cn:"对于梦想，要保持执着。", example_vn:"Với ước mơ, hãy giữ sự kiên định." },
+  // ── HSK 2 — bổ sung ──────────────────────────────────────────────────────────
+  { hanzi:"微笑", pinyin:"wēixiào", meaning:"mỉm cười, nụ cười", level:"hsk2", type:"động từ/danh từ", emotional:true,
+    example_cn:"你的微笑让我心情变好了。", example_vn:"Nụ cười của bạn làm tâm trạng tôi tốt hơn." },
+  { hanzi:"温柔", pinyin:"wēnróu", meaning:"dịu dàng, nhẹ nhàng", level:"hsk2", type:"tính từ", emotional:true,
+    example_cn:"她说话很温柔。", example_vn:"Cô ấy nói chuyện rất dịu dàng." },
+  { hanzi:"开心", pinyin:"kāixīn", meaning:"vui vẻ, vui mừng", level:"hsk2", type:"tính từ", emotional:true,
+    example_cn:"看到你我很开心。", example_vn:"Tôi rất vui khi gặp bạn." },
+  { hanzi:"难过", pinyin:"nánguò", meaning:"buồn, khó chịu", level:"hsk2", type:"tính từ", emotional:true,
+    example_cn:"分开的时候我很难过。", example_vn:"Lúc chia tay tôi rất buồn." },
+  { hanzi:"害怕", pinyin:"hàipà", meaning:"sợ hãi", level:"hsk2", type:"động từ", emotional:true,
+    example_cn:"我害怕失去你。", example_vn:"Tôi sợ mất bạn." },
+  { hanzi:"生气", pinyin:"shēngqì", meaning:"tức giận", level:"hsk2", type:"động từ", emotional:true,
+    example_cn:"你为什么生气了？", example_vn:"Tại sao bạn tức giận vậy?" },
+  { hanzi:"担心", pinyin:"dānxīn", meaning:"lo lắng", level:"hsk2", type:"động từ", emotional:true,
+    example_cn:"我很担心你。", example_vn:"Tôi rất lo lắng cho bạn." },
+  // ── HSK 3 — bổ sung ──────────────────────────────────────────────────────────
+  { hanzi:"感动", pinyin:"gǎndòng", meaning:"xúc động, cảm động", level:"hsk3", type:"động từ", emotional:true,
+    example_cn:"这首歌让我很感动。", example_vn:"Bài hát này khiến tôi rất xúc động." },
+  { hanzi:"后悔", pinyin:"hòuhuǐ", meaning:"hối hận, tiếc nuối", level:"hsk3", type:"động từ", emotional:true,
+    example_cn:"我后悔没有对你说那些话。", example_vn:"Tôi hối hận vì không nói những điều đó với bạn." },
+  { hanzi:"珍惜", pinyin:"zhēnxī", meaning:"trân trọng, quý trọng", level:"hsk3", type:"động từ", emotional:true,
+    example_cn:"要珍惜身边的人。", example_vn:"Hãy trân trọng những người ở bên bạn." },
+  { hanzi:"期待", pinyin:"qīdài", meaning:"mong đợi, kỳ vọng", level:"hsk3", type:"động từ", emotional:true,
+    example_cn:"我很期待见到你。", example_vn:"Tôi rất mong được gặp bạn." },
+  { hanzi:"失望", pinyin:"shīwàng", meaning:"thất vọng", level:"hsk3", type:"动词/tính từ", emotional:true,
+    example_cn:"请不要让我失望。", example_vn:"Xin đừng làm tôi thất vọng." },
+  { hanzi:"满足", pinyin:"mǎnzú", meaning:"thỏa mãn, hài lòng", level:"hsk3", type:"động từ", emotional:true,
+    example_cn:"有你在，我就很满足了。", example_vn:"Có bạn bên cạnh, tôi đã rất hài lòng." },
+  { hanzi:"放弃", pinyin:"fàngqì", meaning:"từ bỏ, buông tay", level:"hsk3", type:"động từ", emotional:true,
+    example_cn:"我不想放弃你。", example_vn:"Tôi không muốn từ bỏ bạn." },
+  { hanzi:"坚持", pinyin:"jiānchí", meaning:"kiên trì, cố gắng", level:"hsk3", type:"động từ", emotional:true,
+    example_cn:"只要坚持，就会成功。", example_vn:"Chỉ cần kiên trì, sẽ thành công." },
+  { hanzi:"勇气", pinyin:"yǒngqì", meaning:"dũng khí, can đảm", level:"hsk3", type:"danh từ", emotional:true,
+    example_cn:"需要很大的勇气才能说出来。", example_vn:"Cần rất nhiều can đảm mới nói ra được." },
+  { hanzi:"原谅", pinyin:"yuánliàng", meaning:"tha thứ, tha lỗi", level:"hsk3", type:"động từ", emotional:true,
+    example_cn:"请你原谅我。", example_vn:"Xin hãy tha thứ cho tôi." },
+  { hanzi:"陪伴", pinyin:"péibàn", meaning:"bầu bạn, đồng hành", level:"hsk3", type:"động từ", emotional:true,
+    example_cn:"谢谢你一直陪伴着我。", example_vn:"Cảm ơn bạn đã luôn ở bên tôi." },
+  { hanzi:"安慰", pinyin:"ānwèi", meaning:"an ủi, vỗ về", level:"hsk3", type:"động từ", emotional:true,
+    example_cn:"你的话安慰了我。", example_vn:"Những lời bạn nói đã an ủi tôi." },
+  { hanzi:"相遇", pinyin:"xiāngyù", meaning:"gặp gỡ, tao ngộ", level:"hsk3", type:"động từ", emotional:true,
+    example_cn:"很高兴和你相遇。", example_vn:"Thật vui khi được gặp bạn." },
+  // ── HSK 4 — bổ sung ──────────────────────────────────────────────────────────
+  { hanzi:"寂寞", pinyin:"jìmò", meaning:"cô đơn, buồn bã", level:"hsk4", type:"tính từ", emotional:true,
+    example_cn:"一个人的夜晚很寂寞。", example_vn:"Đêm một mình rất cô đơn." },
+  { hanzi:"孤独", pinyin:"gūdú", meaning:"cô độc, đơn độc", level:"hsk4", type:"tính từ", emotional:true,
+    example_cn:"在人群中也会感到孤独。", example_vn:"Giữa đám đông vẫn có thể cảm thấy cô đơn." },
+  { hanzi:"感激", pinyin:"gǎnjī", meaning:"biết ơn, cảm kích", level:"hsk4", type:"động từ", emotional:true,
+    example_cn:"我非常感激你的帮助。", example_vn:"Tôi rất biết ơn sự giúp đỡ của bạn." },
+  { hanzi:"羡慕", pinyin:"xiànmù", meaning:"ngưỡng mộ, ghen tị (tích cực)", level:"hsk4", type:"động từ", emotional:true,
+    example_cn:"我很羡慕你们的感情。", example_vn:"Tôi rất ngưỡng mộ tình cảm của hai bạn." },
+  { hanzi:"嫉妒", pinyin:"jídù", meaning:"ghen tuông, đố kỵ", level:"hsk4", type:"động từ", emotional:true,
+    example_cn:"我承认我有点嫉妒。", example_vn:"Tôi thừa nhận tôi hơi ghen tuông." },
+  { hanzi:"迷茫", pinyin:"mímáng", meaning:"mơ hồ, lạc lõng", level:"hsk4", type:"tính từ", emotional:true,
+    example_cn:"对未来感到迷茫很正常。", example_vn:"Cảm thấy mơ hồ về tương lai là bình thường." },
+  { hanzi:"释然", pinyin:"shìrán", meaning:"thư thái, nhẹ nhõm (sau khi buông bỏ)", level:"hsk4", type:"tính từ", emotional:true,
+    example_cn:"想通了之后，感到很释然。", example_vn:"Sau khi hiểu ra, tôi cảm thấy rất nhẹ nhõm." },
+  { hanzi:"温暖", pinyin:"wēnnuǎn", meaning:"ấm áp (cả nghĩa đen lẫn bóng)", level:"hsk4", type:"tính từ", emotional:true,
+    example_cn:"你的关心让我感到温暖。", example_vn:"Sự quan tâm của bạn khiến tôi cảm thấy ấm áp." },
+  { hanzi:"心动", pinyin:"xīndòng", meaning:"rung động, xao xuyến", level:"hsk4", type:"động từ", emotional:true,
+    example_cn:"第一次见面就让我心动。", example_vn:"Lần đầu gặp mặt đã khiến tôi xao xuyến." },
+  { hanzi:"留恋", pinyin:"liúliàn", meaning:"luyến tiếc, không nỡ rời", level:"hsk4", type:"động từ", emotional:true,
+    example_cn:"我很留恋那段美好的时光。", example_vn:"Tôi rất luyến tiếc khoảng thời gian đẹp đó." },
+  { hanzi:"心碎", pinyin:"xīnsuì", meaning:"tan vỡ, đau lòng", level:"hsk4", type:"động từ", emotional:true,
+    example_cn:"听到这个消息，我心碎了。", example_vn:"Nghe tin đó, tôi tan vỡ cả người." },
+  { hanzi:"释怀", pinyin:"shíhuái", meaning:"buông bỏ được, không còn chấp", level:"hsk4", type:"động từ", emotional:true,
+    example_cn:"慢慢地，我学会了释怀。", example_vn:"Dần dần, tôi học được cách buông bỏ." },
+  { hanzi:"感慨", pinyin:"gǎnkǎi", meaning:"cảm khái, bùi ngùi", level:"hsk4", type:"động từ", emotional:true,
+    example_cn:"看到老照片，不禁感慨万千。", example_vn:"Nhìn ảnh cũ, không khỏi bùi ngùi." },
+  { hanzi:"依恋", pinyin:"yīliàn", meaning:"quyến luyến, phụ thuộc cảm xúc", level:"hsk4", type:"động từ", emotional:true,
+    example_cn:"孩子对妈妈有深深的依恋。", example_vn:"Đứa trẻ quyến luyến mẹ một cách sâu sắc." },
+  { hanzi:"遗憾", pinyin:"yíhàn", meaning:"tiếc nuối, đáng tiếc", level:"hsk4", type:"danh từ/tính từ", emotional:true,
+    example_cn:"没能陪你走到最后，是我最大的遗憾。", example_vn:"Không thể ở bên bạn đến cuối, là điều tiếc nuối lớn nhất của tôi." },
+  { hanzi:"纠结", pinyin:"jiūjié", meaning:"phân vân, rối bời", level:"hsk4", type:"tính từ", emotional:true,
+    example_cn:"关于这件事我一直很纠结。", example_vn:"Tôi cứ phân vân mãi về chuyện này." },
+  { hanzi:"心安", pinyin:"xīnān", meaning:"an lòng, yên tâm", level:"hsk4", type:"tính từ", emotional:true,
+    example_cn:"有你在，我就心安了。", example_vn:"Có bạn ở đây, tôi đã an lòng." },
 ];
 
 // ─── Level Config ─────────────────────────────────────────────────────────────
@@ -230,7 +307,7 @@ export default function DictionaryPage() {
           <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#8A8078]" />
           <input
             type="text"
-            placeholder="Tìm hanzi, pinyin hoặc nghĩa..."
+            placeholder="Tìm hanzi, pinyin hoặc nghĩa..." aria-label="Tìm hanzi, pinyin hoặc nghĩa"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             className="w-full bg-[#1A1A1A] border border-[rgba(255,255,255,0.08)] rounded-full pl-9 pr-4 py-2.5 text-sm text-[#F5F0EB] placeholder:text-[#8A8078] outline-none focus:border-[#E8634A]/50 transition-colors"

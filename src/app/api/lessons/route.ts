@@ -46,6 +46,11 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  // Admin-only: check ADMIN_SECRET header or env
+  const adminSecret = req.headers.get("x-admin-secret");
+  if (!adminSecret || adminSecret !== process.env.ADMIN_SECRET) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
   try {
     await connectDB();
     const body = await req.json();

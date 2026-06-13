@@ -27,11 +27,11 @@ interface AnswerState {
 }
 
 const EXERCISE_LABELS: Record<string, string> = {
-  fill_blank: "Dien vao cho trong",
-  translate_to_viet: "Dich sang tieng Viet",
-  translate_to_chinese: "Dich sang tieng Trung",
-  multiple_choice: "Chon dap an dung",
-  pinyin: "Viet Pinyin",
+  fill_blank: "Điền vào chỗ trống",
+  translate_to_viet: "Dịch sang tiếng Việt",
+  translate_to_chinese: "Dịch sang tiếng Trung",
+  multiple_choice: "Chọn đáp án đúng",
+  pinyin: "Viết Pinyin",
 };
 
 const LEVEL_COLOR: Record<string, string> = {
@@ -167,14 +167,14 @@ function ExerciseCard({
         >
           {EXERCISE_LABELS[ex.type] ?? ex.type}
         </span>
-        <span className="text-[10px] text-[#3A3A3A] ml-auto">Bai {index + 1}</span>
+        <span className="text-[10px] text-[#3A3A3A] ml-auto">Bài {index + 1}</span>
       </div>
 
       {/* Question */}
       <p className="text-sm text-[#F5F0EB] leading-relaxed mb-3 font-noto">{ex.question}</p>
 
       {ex.hint && !submitted && (
-        <p className="text-[11px] text-[#5A5450] mb-3 italic">Goi y: {ex.hint}</p>
+        <p className="text-[11px] text-[#5A5450] mb-3 italic">Gợi ý: {ex.hint}</p>
       )}
 
       {/* Input */}
@@ -202,7 +202,7 @@ function ExerciseCard({
             value={answer.value}
             onChange={(e) => onAnswerChange(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && answer.value.trim() && onSubmit()}
-            placeholder="Nhap cau tra loi..."
+            placeholder="Nhập câu trả lời..." aria-label="Nhập câu trả lời"
             className="w-full bg-[#0A0A0A] rounded-xl px-4 py-2.5 text-sm text-[#F5F0EB] placeholder-[#3A3A3A] outline-none mb-3"
             style={{ border: "1px solid rgba(255,255,255,0.08)" }}
             disabled={answer.grading}
@@ -223,9 +223,9 @@ function ExerciseCard({
           )}
         >
           {answer.grading ? (
-            <><Loader2 size={12} className="animate-spin" /> Dang cham...</>
+            <><Loader2 size={12} className="animate-spin" /> Đang chấm...</>
           ) : (
-            <><CheckCircle2 size={12} /> Nop bai</>
+            <><CheckCircle2 size={12} /> Nộp bài</>
           )}
         </button>
       ) : result && (
@@ -239,7 +239,7 @@ function ExerciseCard({
             <ScoreRing score={result.score} />
             <div className="flex-1">
               <p className="text-sm font-medium" style={{ color: scoreColor }}>
-                {result.correct ? "Chinh xac!" : result.score >= 70 ? "Gan dung roi!" : "Can on lai!"}
+                {result.correct ? "Chính xác!" : result.score >= 70 ? "Gần đúng rồi!" : "Cần ôn lại!"}
               </p>
               <p className="text-xs text-[#8A8078] mt-0.5">{result.feedback}</p>
             </div>
@@ -248,12 +248,12 @@ function ExerciseCard({
           {/* Errors */}
           {result.errors.length > 0 && (
             <div className="rounded-xl p-3 space-y-2" style={{ background: "rgba(232,80,74,0.06)", border: "1px solid rgba(232,80,74,0.12)" }}>
-              <p className="text-[10px] text-[#E8504A] font-semibold uppercase tracking-wider">Loi can sua:</p>
+              <p className="text-[10px] text-[#E8504A] font-semibold uppercase tracking-wider">Lỗi cần sửa:</p>
               {result.errors.map((err, i) => (
                 <div key={i} className="text-xs">
                   <span className="text-[#F5F0EB]">{err.explanation}</span>
                   {err.correct && (
-                    <span className="ml-2 text-[#8FAF8F] font-semibold">Dung: {err.correct}</span>
+                    <span className="ml-2 text-[#8FAF8F] font-semibold">Đúng: {err.correct}</span>
                   )}
                 </div>
               ))}
@@ -309,9 +309,9 @@ function UploadZone({ onFile }: { onFile: (f: File) => void }) {
         </div>
         <div>
           <p className="text-base font-semibold text-[#F5F0EB] mb-1">
-            Keo tha anh hoac file vao day
+            Kéo thả ảnh hoặc file vào đây
           </p>
-          <p className="text-sm text-[#5A5450]">hoac bam de chon file</p>
+          <p className="text-sm text-[#5A5450]">hoặc bấm để chọn file</p>
         </div>
         <div className="flex items-center gap-3 mt-1">
           {[
@@ -341,7 +341,7 @@ function PasteZone({ onText }: { onText: (t: string) => void }) {
       <textarea
         value={val}
         onChange={(e) => setVal(e.target.value)}
-        placeholder="Dan van ban tieng Trung vao day..."
+        placeholder="Dán văn bản tiếng Trung vào đây..." aria-label="Dán văn bản tiếng Trung vào đây"
         rows={5}
         className="w-full bg-[#141414] rounded-2xl px-4 py-3 text-sm text-[#F5F0EB] placeholder-[#3A3A3A] outline-none resize-none font-noto"
         style={{ border: "1px solid rgba(255,255,255,0.08)" }}
@@ -357,7 +357,7 @@ function PasteZone({ onText }: { onText: (t: string) => void }) {
         )}
       >
         <Sparkles size={14} />
-        Phan tich
+        Phân tích
       </button>
     </div>
   );
@@ -381,12 +381,12 @@ export default function SmartLessonPage() {
       setStep("analyzing");
       const res = await fetch("/api/ai/analyze-upload", { method: "POST", body: formData });
       const json = await res.json() as AnalyzedContent & { error?: string };
-      if (!res.ok || json.error) throw new Error(json.error ?? "Loi phan tich");
+      if (!res.ok || json.error) throw new Error(json.error ?? "Lỗi phân tích");
       setData(json);
       initAnswers(json.exercises ?? []);
       setStep("done");
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Loi khong ro");
+      setError(e instanceof Error ? e.message : "Lỗi không rõ");
       setStep("error");
     }
   };
@@ -401,12 +401,12 @@ export default function SmartLessonPage() {
         body: JSON.stringify({ text }),
       });
       const json = await res.json() as AnalyzedContent & { error?: string };
-      if (!res.ok || json.error) throw new Error(json.error ?? "Loi phan tich");
+      if (!res.ok || json.error) throw new Error(json.error ?? "Lỗi phân tích");
       setData(json);
       initAnswers(json.exercises ?? []);
       setStep("done");
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Loi khong ro");
+      setError(e instanceof Error ? e.message : "Lỗi không rõ");
       setStep("error");
     }
   };
@@ -449,7 +449,7 @@ export default function SmartLessonPage() {
       setAnswers((prev) => ({
         ...prev,
         [ex.id]: { ...prev[ex.id], grading: false, submitted: true, result: {
-          score: 0, correct: false, errors: [], feedback: "Loi cham diem, thu lai sau", suggestion: "",
+          score: 0, correct: false, errors: [], feedback: "Lỗi chấm điểm, thử lại sau", suggestion: "",
         }},
       }));
     }
@@ -474,7 +474,7 @@ export default function SmartLessonPage() {
           <h1 className="text-xl font-bold">Smart Lesson</h1>
         </div>
         <p className="text-sm text-[#5A5450]">
-          Tai anh sach giao khoa, ghi chu, hoac dan van ban - AI se tao bai tap cho ban
+          Tải ảnh sách giáo khoa, ghi chú, hoặc dán văn bản — AI sẽ tạo bài tập cho bạn
         </p>
       </motion.div>
 
@@ -503,7 +503,7 @@ export default function SmartLessonPage() {
                     tab === t ? "bg-[#1A1A1A] text-white" : "text-[#5A5450] hover:text-[#8A8078]"
                   )}
                 >
-                  {t === "upload" ? <><ImageIcon size={14} /> Anh / File</> : <><Clipboard size={14} /> Dan van ban</>}
+                  {t === "upload" ? <><ImageIcon size={14} /> Ảnh / File</> : <><Clipboard size={14} /> Dán văn bản</>}
                 </button>
               ))}
             </div>
@@ -542,10 +542,10 @@ export default function SmartLessonPage() {
             </div>
             <div className="text-center">
               <p className="text-sm font-semibold text-[#F5F0EB]">
-                {step === "uploading" ? "Dang tai len..." : "AI dang phan tich..."}
+                {step === "uploading" ? "Đang tải lên..." : "AI đang phân tích..."}
               </p>
               <p className="text-xs text-[#5A5450] mt-1">
-                {step === "analyzing" ? "GPT-4o dang doc va tao bai tap cho ban" : "Chuan bi file..."}
+                {step === "analyzing" ? "AI đang đọc và tạo bài tập cho bạn" : "Chuẩn bị file..."}
               </p>
             </div>
           </motion.div>
@@ -582,7 +582,7 @@ export default function SmartLessonPage() {
               {totalScore() !== null && (
                 <div className="mt-3 pt-3 flex items-center gap-2" style={{ borderTop: "1px solid rgba(255,255,255,0.05)" }}>
                   <ScoreRing score={totalScore()!} />
-                  <p className="text-sm text-[#8A8078]">Diem trung binh bai nop</p>
+                  <p className="text-sm text-[#8A8078]">Điểm trung bình bài nộp</p>
                 </div>
               )}
             </div>
@@ -593,8 +593,8 @@ export default function SmartLessonPage() {
               style={{ background: "#141414", border: "1px solid rgba(255,255,255,0.06)" }}
             >
               {([
-                { key: "vocab", label: `Tu vung (${data.vocabulary?.length ?? 0})` },
-                { key: "exercises", label: `Bai tap (${data.exercises?.length ?? 0})` },
+                { key: "vocab", label: `Từ vựng (${data.vocabulary?.length ?? 0})` },
+                { key: "exercises", label: `Bài tập (${data.exercises?.length ?? 0})` },
               ] as const).map(({ key, label }) => (
                 <button
                   key={key}
@@ -625,7 +625,7 @@ export default function SmartLessonPage() {
                   className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl text-sm font-semibold text-[#8A9DC9] hover:bg-[#141414] transition-colors mt-2"
                   style={{ border: "1px solid rgba(138,157,201,0.2)" }}
                 >
-                  Sang bai tap <ArrowRight size={14} />
+                  Sang bài tập <ArrowRight size={14} />
                 </button>
               </motion.div>
             )}
@@ -656,7 +656,7 @@ export default function SmartLessonPage() {
               onClick={() => { setStep("idle"); setData(null); setAnswers({}); setError(""); }}
               className="flex items-center gap-2 text-xs text-[#5A5450] hover:text-[#8A8078] transition-colors mx-auto mt-2"
             >
-              <RotateCcw size={11} /> Phan tich tai lieu khac
+              <RotateCcw size={11} /> Phân tích tài liệu khác
             </button>
           </motion.div>
         )}
@@ -673,14 +673,14 @@ export default function SmartLessonPage() {
         >
           <div className="flex items-center gap-2 mb-3">
             <AlertCircle size={13} className="text-[#5A5450]" />
-            <p className="text-[10px] text-[#5A5450] uppercase tracking-widest font-semibold">Cach hoat dong</p>
+            <p className="text-[10px] text-[#5A5450] uppercase tracking-widest font-semibold">Cách hoạt động</p>
           </div>
           <div className="space-y-2">
             {[
-              { step: "1", text: "Tai anh chup trang sach, ghi chu, hoac bai bao tieng Trung" },
-              { step: "2", text: "GPT-4o Vision phan tich va trich xuat toan bo noi dung" },
-              { step: "3", text: "AI tu dong tao 5-8 bai tap da dang: dien khuyet, dich, trac nghiem, pinyin" },
-              { step: "4", text: "Nop bai - AI cham diem chi tiet tung loi nho nhat ke ca thanh dieu" },
+              { step: "1", text: "Tải ảnh chụp trang sách, ghi chú, hoặc bài báo tiếng Trung" },
+              { step: "2", text: "AI Vision phân tích và trích xuất toàn bộ nội dung" },
+              { step: "3", text: "AI tự động tạo 5-8 bài tập đa dạng: điền khuyết, dịch, trắc nghiệm, pinyin" },
+              { step: "4", text: "Nộp bài — AI chấm điểm chi tiết từng lỗi nhỏ nhất kể cả thanh điệu" },
             ].map(({ step: s, text }) => (
               <div key={s} className="flex items-start gap-2.5">
                 <span

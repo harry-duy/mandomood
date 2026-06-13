@@ -190,7 +190,11 @@ Trả về JSON với format CHÍNH XÁC này:
   const content = response.choices[0].message.content;
   if (!content) throw new Error("OpenAI không trả về content");
 
-  return JSON.parse(content) as GeneratedStory;
+  try {
+    return JSON.parse(content) as GeneratedStory;
+  } catch {
+    throw new Error("OpenAI trả về JSON không hợp lệ: " + content.slice(0, 200));
+  }
 }
 
 // ─── AI Tutor Chat ────────────────────────────────────────────────────────────
@@ -227,14 +231,26 @@ const PERSONA_PROMPTS: Record<TutorPersona, string> = {
 export async function chatWithTutor(
   messages: { role: "user" | "assistant"; content: string }[],
   persona: TutorPersona,
-  userLevel: StoryLevel
+  userLevel: StoryLevel,
+  scenario?: string
 ): Promise<string> {
+  const scenarioPrompt = scenario
+    ? `
+
+CHẾ ĐỘ ROLEPLAY — TÌNH HUỐNG: "${scenario}"
+- Bạn ĐÓNG VAI nhân vật trong tình huống (vd: phục vụ quán ăn, lễ tân khách sạn, người phỏng vấn…), nói tiếng Trung là chính.
+- Mỗi lượt: nói 1-2 câu tiếng Trung ngắn (kèm pinyin trong ngoặc), rồi dịch tiếng Việt ở dòng riêng bắt đầu bằng "→".
+- Nếu học viên nói sai/không tự nhiên: sửa nhẹ nhàng ở cuối, dòng bắt đầu bằng "💡 Sửa:".
+- Giữ hội thoại tiến triển theo tình huống; nếu học viên bí, gợi ý 1 câu họ có thể nói tiếp.
+- Nếu đây là tin nhắn đầu tiên, hãy mở màn tình huống.`
+    : "";
+
   const systemPrompt = `${PERSONA_PROMPTS[persona]}
 
 Level của người dùng: ${userLevel}
 Hãy điều chỉnh độ khó từ vựng phù hợp.
 Khi sửa lỗi, hãy giải thích TẠI SAO sai và đưa ra ví dụ đúng.
-Đôi khi hỏi thêm câu hỏi để kiểm tra hiểu biết.`;
+Đôi khi hỏi thêm câu hỏi để kiểm tra hiểu biết.${scenarioPrompt}`;
 
   if (GEMINI_API_KEY) {
     const conversation = messages

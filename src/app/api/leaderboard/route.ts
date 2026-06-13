@@ -14,7 +14,7 @@ export async function GET(req: NextRequest) {
     const period = req.nextUrl.searchParams.get("period") ?? "weekly";
 
     const users = await User.find({})
-      .select("name image xp streak level weekly_xp")
+      .select("name image xp streak level weekly_xp test_best_pct tests_taken")
       .sort(period === "weekly" ? { weekly_xp: -1 } : { xp: -1 })
       .limit(50)
       .lean();
@@ -27,6 +27,8 @@ export async function GET(req: NextRequest) {
       weekly_xp: (u as Record<string, unknown>).weekly_xp as number ?? 0,
       streak: (u.streak as number) ?? 0,
       level: (u.level as string) ?? "beginner",
+      test_best_pct: ((u as Record<string, unknown>).test_best_pct as number) ?? 0,
+      tests_taken: ((u as Record<string, unknown>).tests_taken as number) ?? 0,
     }));
 
     return NextResponse.json({ period, users: ranked });

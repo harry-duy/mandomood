@@ -59,9 +59,9 @@ const DEMO_LESSONS: Lesson[] = [
     _id: "l3", title: "Thu nho gui nguoi cu", content_type: "story",
     mood: "sad", level: "hsk3",
     chinese_text: "有些话我多想对你说。\n可惜，时间已经过去了。",
-    pinyin: "Yǒu xiē huà wǒ duō xiǎng duì nǐ shuō.\nKěxi, shíjiān yǐjīng guòqu le.",
+    pinyin: "Yǒu xiē huà wǒ duō xiǎng duì nǐ shuō.\nKěxī, shíjiān yǐjīng guòqu le.",
     translation: "Có những lời tôi rất muốn nói với bạn.\nTiếc thay, thời gian đã qua rồi.",
-    vocabulary: [{ hanzi: "可惜", pinyin: "kěxi", meaning: "tiếc thay" }, { hanzi: "过去", pinyin: "guòqu", meaning: "đã qua" }],
+    vocabulary: [{ hanzi: "可惜", pinyin: "kěxī", meaning: "tiếc thay" }, { hanzi: "过去", pinyin: "guòqu", meaning: "đã qua" }],
     view_count: 312, estimated_minutes: 4,
   },
   {
@@ -95,7 +95,7 @@ const DEMO_LESSONS: Lesson[] = [
     _id: "l7", title: "Hom nay uong tra", content_type: "dialogue",
     mood: "funny", level: "hsk1",
     chinese_text: "你喜欢喝什么？\n我喜欢啤酒、咖啡、奶茶——如果有得话。",
-    pinyin: "Nǐ xǐhuān hē shénme?\nWǒ piújiǔ, kāfēi, nǎichá — rúguǒ yǒu de huà.",
+    pinyin: "Nǐ xǐhuān hē shénme?\nWǒ xǐhuān píjiǔ, kāfēi, nǎichá — rúguǒ yǒu de huà.",
     translation: "Bạn thích uống gì?\nTôi thích bia, cà phê, trà sữa — nếu có.",
     vocabulary: [{ hanzi: "喜欢", pinyin: "xǐhuān", meaning: "thích" }, { hanzi: "如果", pinyin: "rúguǒ", meaning: "nếu" }],
     view_count: 201, estimated_minutes: 2,
@@ -104,7 +104,7 @@ const DEMO_LESSONS: Lesson[] = [
     _id: "l8", title: "Tinh ban thuc su", content_type: "story",
     mood: "healing", level: "hsk2",
     chinese_text: "真正的朋友，不用天天联系。\n但每次相见，都跟昨天一样。",
-    pinyin: "Zhēnzhèng de péngyǒu, bùyòng tiāntiān liánxiì.\nDàn měi cì xiāngjiàn, dōu gēn zuótiān yīyàng.",
+    pinyin: "Zhēnzhèng de péngyǒu, bùyòng tiāntiān liánxì.\nDàn měi cì xiāngjiàn, dōu gēn zuótiān yīyàng.",
     translation: "Bạn bè thực sự, không cần liên lạc hàng ngày.\nNhưng mỗi lần gặp nhau, vẫn như ngày hôm qua.",
     vocabulary: [{ hanzi: "朋友", pinyin: "péngyǒu", meaning: "bạn bè" }, { hanzi: "相见", pinyin: "xiāngjiàn", meaning: "gặp nhau" }],
     view_count: 320, estimated_minutes: 3,
@@ -113,7 +113,7 @@ const DEMO_LESSONS: Lesson[] = [
     _id: "l9", title: "Tuoi thanh xuan", content_type: "poem",
     mood: "motivation", level: "hsk3",
     chinese_text: "青春是我们最大的资本。\n别浪费它在抱怨和后悔里。",
-    pinyin: "Qīngchuūn shì wǒmen zuì dà de zīběn.\nBié làngfèi tā zài bàoyuàn hé hòuhuǐ lǐ.",
+    pinyin: "Qīngchūn shì wǒmen zuì dà de zīběn.\nBié làngfèi tā zài bàoyuàn hé hòuhuǐ lǐ.",
     translation: "Tuổi thanh xuân là tài sản lớn nhất của chúng ta.\nĐừng lãng phí nó vào phàn nàn và hối tiếc.",
     vocabulary: [{ hanzi: "青春", pinyin: "qīngchūn", meaning: "tuổi thanh xuân" }, { hanzi: "浪费", pinyin: "làngfèi", meaning: "lãng phí" }],
     view_count: 478, estimated_minutes: 2,
@@ -124,7 +124,7 @@ const DEMO_LESSONS: Lesson[] = [
     chinese_text: "春天来了。\n花开了，鳥叫了。心情好了。",
     pinyin: "Chūntiān lái le.\nHuā kāi le, niǎo jiào le. Xīnqíng hǎo le.",
     translation: "Mùa xuân đến rồi.\nHoa nở, chim hót. Tâm trạng tốt hơn.",
-    vocabulary: [{ hanzi: "春天", pinyin: "chuāngtiān", meaning: "mùa xuân" }, { hanzi: "心情", pinyin: "xīnqíng", meaning: "tâm trạng" }],
+    vocabulary: [{ hanzi: "春天", pinyin: "chūntiān", meaning: "mùa xuân" }, { hanzi: "心情", pinyin: "xīnqíng", meaning: "tâm trạng" }],
     view_count: 156, estimated_minutes: 1,
   },
   {
@@ -149,10 +149,10 @@ const DEMO_LESSONS: Lesson[] = [
 
 // ─── Content type config ───────────────────────────────────────────────────────
 const TYPE_CONFIG: Record<string, { label: string; icon: string; color: string }> = {
-  story:    { label: "Cau chuyen", icon: "📖", color: "#C9878A" },
-  dialogue: { label: "Hoi thoai", icon: "💬", color: "#7AB8D4" },
-  poem:     { label: "Tho ca",    icon: "🌸", color: "#9B8BBF" },
-  quote:    { label: "Cau hay",   icon: "✨", color: "#D4AF37" },
+  story:    { label: "Câu chuyện", icon: "📖", color: "#C9878A" },
+  dialogue: { label: "Hội thoại", icon: "💬", color: "#7AB8D4" },
+  poem:     { label: "Thơ ca",    icon: "🌸", color: "#9B8BBF" },
+  quote:    { label: "Câu hay",   icon: "✨", color: "#D4AF37" },
 };
 
 // ─── Level badge ───────────────────────────────────────────────────────────────
@@ -254,7 +254,7 @@ function LessonCard({ lesson, index }: { lesson: Lesson; index: number }) {
 
         {/* Audio button */}
         <button
-          onClick={handlePlay}
+          onClick={handlePlay} aria-label="Phát âm thanh"
           className="w-7 h-7 rounded-full bg-[#242424] flex items-center justify-center text-[#5A5050] hover:text-[#E8634A] hover:bg-[#2A1A1A] transition-all"
         >
           <Volume2 size={12} />
@@ -328,12 +328,14 @@ export default function FeedPage() {
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const loaderRef = useRef<HTMLDivElement>(null);
+  const fetchSeqRef = useRef(0); // chống race: chỉ áp dụng response mới nhất
 
   const LEVELS = ["hsk1", "hsk2", "hsk3", "hsk4", "hsk5", "hsk6"];
   const TYPES = ["story", "dialogue", "poem", "quote"];
 
   // Fetch lessons
   const fetchLessons = useCallback(async (reset = false) => {
+    const seq = ++fetchSeqRef.current;
     setLoading(true);
     try {
       const params = new URLSearchParams();
@@ -346,6 +348,7 @@ export default function FeedPage() {
       const res = await fetch(`/api/lessons?${params}`);
       if (!res.ok) throw new Error("API error");
       const data = await res.json();
+      if (seq !== fetchSeqRef.current) return; // có request mới hơn → bỏ kết quả cũ
 
       if (reset) {
         setLessons(data.lessons ?? []);
@@ -356,6 +359,7 @@ export default function FeedPage() {
       }
       setHasMore((data.lessons ?? []).length >= 6);
     } catch {
+      if (seq !== fetchSeqRef.current) return; // bỏ fallback nếu đã có request mới
       // Fallback to demo data
       const filtered = DEMO_LESSONS.filter(l => {
         if (selectedMood && l.mood !== selectedMood) return false;
@@ -366,7 +370,7 @@ export default function FeedPage() {
       setLessons(filtered);
       setHasMore(false);
     } finally {
-      setLoading(false);
+      if (seq === fetchSeqRef.current) setLoading(false);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedMood, selectedLevel, selectedType]);
@@ -428,7 +432,7 @@ export default function FeedPage() {
             className="flex items-center gap-1.5 text-xs text-[#8A8078] hover:text-white transition-colors"
           >
             <Filter size={12} />
-            Bo loc them
+            Bộ lọc thêm
             <ChevronDown
               size={12}
               className={cn("transition-transform duration-200", showFilters && "rotate-180")}
@@ -448,7 +452,7 @@ export default function FeedPage() {
                   {/* Level */}
                   <div>
                     <p className="text-[10px] text-[#5A5050] uppercase tracking-wider mb-2">
-                      Trinh do
+                      Trình độ
                     </p>
                     <div className="flex flex-wrap gap-1.5">
                       {LEVELS.map(lvl => (
@@ -471,7 +475,7 @@ export default function FeedPage() {
                   {/* Type */}
                   <div>
                     <p className="text-[10px] text-[#5A5050] uppercase tracking-wider mb-2">
-                      Loai noi dung
+                      Loại nội dung
                     </p>
                     <div className="flex flex-wrap gap-1.5">
                       {TYPES.map(t => {
@@ -518,8 +522,8 @@ export default function FeedPage() {
             {!loading && lessons.length === 0 && (
               <div className="text-center py-16">
                 <p className="text-4xl mb-3">🐼</p>
-                <p className="text-[var(--text)] font-medium mb-1">Chua co bai hoc nao</p>
-                <p className="text-sm text-[#8A8078]">Thu chon mood khac nhe</p>
+                <p className="text-[var(--text)] font-medium mb-1">Chưa có bài học nào</p>
+                <p className="text-sm text-[#8A8078]">Thử chọn mood khác nhé</p>
               </div>
             )}
 

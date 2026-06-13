@@ -2,19 +2,21 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, BookOpen, Users, GraduationCap, User } from "lucide-react";
+import { Home, BookOpen, Compass, GraduationCap, User } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useDueCount } from "@/hooks/useDueCount";
 
 const NAV_ITEMS = [
   { href: "/",           icon: Home,          label: "Trang chủ" },
   { href: "/feed",       icon: BookOpen,      label: "Học"       },
-  { href: "/community",  icon: Users,         label: "Cộng đồng" },
+  { href: "/explore",    icon: Compass,       label: "Khám phá"  },
   { href: "/flashcards", icon: GraduationCap, label: "Ôn tập"    },
   { href: "/profile",    icon: User,          label: "Hồ sơ"     },
 ];
 
 export default function BottomNav() {
   const pathname = usePathname();
+  const dueCount = useDueCount();
 
   return (
     <nav className={cn(
@@ -24,6 +26,7 @@ export default function BottomNav() {
     )}>
       {NAV_ITEMS.map(({ href, icon: Icon, label }) => {
         const isActive = pathname === href || (href !== "/" && pathname.startsWith(href));
+        const showBadge = href === "/flashcards" && dueCount > 0;
         return (
           <Link key={href} href={href}
             className={cn(
@@ -31,8 +34,18 @@ export default function BottomNav() {
               isActive ? "text-mm-red" : "text-[var(--text-muted)] hover:text-white"
             )}
           >
-            <Icon size={20} strokeWidth={isActive ? 2.5 : 1.8}
-              className={cn(isActive && "drop-shadow-[0_0_8px_rgba(232,99,74,0.6)]")} />
+            <span className="relative">
+              <Icon size={20} strokeWidth={isActive ? 2.5 : 1.8}
+                className={cn(isActive && "drop-shadow-[0_0_8px_rgba(232,99,74,0.6)]")} />
+              {showBadge && (
+                <span
+                  aria-label={`${dueCount} thẻ cần ôn`}
+                  className="absolute -top-1.5 -right-2 min-w-[15px] h-[15px] px-1 rounded-full bg-mm-red text-white text-[9px] font-bold leading-[15px] text-center"
+                >
+                  {dueCount > 9 ? "9+" : dueCount}
+                </span>
+              )}
+            </span>
             <span className={cn("text-[9px] font-medium", isActive && "font-semibold")}>
               {label}
             </span>

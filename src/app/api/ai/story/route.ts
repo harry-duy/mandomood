@@ -7,15 +7,43 @@ import { NextRequest, NextResponse } from "next/server";
 import { generateStory, type StoryLevel, type StoryMood } from "@/lib/openai";
 import { connectDB } from "@/lib/mongodb";
 import Lesson from "@/models/Lesson";
+import { checkRateLimit, getRateLimitHeaders } from "@/lib/ratelimit";
+import { getPremiumStatus, consumeDailyQuota } from "@/lib/premiumServer";
+import { FREE_DAILY_STORY } from "@/lib/premium";
 
 export async function POST(req: NextRequest) {
+  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
+  if (!checkRateLimit(ip, 10)) {
+    return NextResponse.json(
+      { error: "Quá nhiều yêu cầu. Vui lòng thử lại sau 1 phút." },
+      { status: 429, headers: getRateLimitHeaders(ip) }
+    );
+  }
+  // Premium/trial: không giới hạn. Free: FREE_DAILY_STORY truyện/ngày.
+  const { email, source } = await getPremiumStatus();
+  if (source === null) {
+    if (email) {
+      const quota = await consumeDailyQuota(email, "story", FREE_DAILY_STORY);
+      if (!quota.allowed) {
+        return NextResponse.json({
+          error: `Bạn đã dùng hết ${FREE_DAILY_STORY} lượt tạo truyện miễn phí hôm nay. Nâng cấp Premium để tạo không giới hạn 👑`,
+          code: "UPGRADE_REQUIRED",
+        }, { status: 402 });
+      }
+    } else if (!checkRateLimit(`story-day:${ip}`, FREE_DAILY_STORY, 24 * 3600 * 1000)) {
+      return NextResponse.json({
+        error: `Khách chưa đăng nhập được ${FREE_DAILY_STORY} truyện/ngày. Đăng nhập để nhận 30 ngày Premium miễn phí 🎁`,
+        code: "LOGIN_REQUIRED",
+      }, { status: 402 });
+    }
+  }
   try {
     const body = await req.json();
     const {
       level = "hsk2",
       mood = "healing",
       theme,
-      save = false, // Có lưu vào DB không
+      save = false,
     } = body as {
       level: StoryLevel;
       mood: StoryMood;
@@ -23,21 +51,15 @@ export async function POST(req: NextRequest) {
       save?: boolean;
     };
 
-    // Validate input
     const validLevels = ["beginner", "hsk1", "hsk2", "hsk3", "hsk4", "hsk5"];
     const validMoods = ["romantic", "healing", "motivation", "sad", "friendship", "aesthetic", "funny"];
 
     if (!validLevels.includes(level) || !validMoods.includes(mood)) {
-      return NextResponse.json(
-        { error: "Level hoặc mood không hợp lệ" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Level hoặc mood không hợp lệ" }, { status: 400 });
     }
 
-    // Generate story tu AI provider
     const story = await generateStory(level, mood, theme);
 
-    // Lưu vào DB nếu được yêu cầu
     if (save) {
       await connectDB();
       await Lesson.create({
@@ -51,16 +73,15 @@ export async function POST(req: NextRequest) {
         vocabulary: story.vocabulary,
         grammar_notes: story.grammar_notes,
         cultural_note: story.cultural_note,
-        is_ai_generated: true,
-        tags: [level, mood, "ai-generated"],
+        is_published: true,
       });
     }
 
-    return NextResponse.json({ success: true, story });
+    return NextResponse.json({ story });
   } catch (error) {
     console.error("[POST /api/ai/story]", error);
     return NextResponse.json(
-      { error: "Loi generate story. Kiem tra GEMINI_API_KEY" },
+      { error: error instanceof Error ? error.message : "Lỗi generate story" },
       { status: 500 }
     );
   }

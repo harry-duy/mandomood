@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { VocabList } from "@/components/ui/VocabCard";
 import MiniQuiz from "@/components/ui/MiniQuiz";
+import PronunciationPractice from "@/components/ui/PronunciationPractice";
 import XPToast, { useXPToast } from "@/components/ui/XPToast";
 import { LessonDetailSkeleton } from "@/components/ui/LoadingSkeleton";
 import { useAppStore } from "@/store/useAppStore";
@@ -108,6 +109,133 @@ const DEMO_LESSONS: Record<string, Lesson> = {
     cultural_note:
       "缘分 (yuánfèn) là một trong những khái niệm đặc trưng nhất của văn hóa Trung Hoa — mối duyên tiền định giữa người với người. Không có từ nào trong tiếng Anh hoặc tiếng Việt dịch được hoàn toàn ý nghĩa này.",
   },
+  l4: {
+    _id: "l4", title: "Ngày mai sẽ tốt hơn", content_type: "quote", mood: "motivation", level: "hsk2",
+    chinese_text: "再难的路，走着走着就习惯了。\n再苦的日子，过着过着就好了。\n加油，明天会更好。",
+    pinyin: "Zài nán de lù, zǒuzhe zǒuzhe jiù xíguàn le.\nZài kǔ de rìzi, guòzhe guòzhe jiù hǎo le.\nJiāyóu, míngtiān huì gèng hǎo.",
+    translation: "Con đường dù khó đến đâu, đi mãi rồi cũng quen.\nNgày tháng dù khổ đến đâu, sống mãi rồi cũng qua.\nCố lên, ngày mai sẽ tốt hơn.",
+    vocabulary: [
+      { hanzi: "习惯", pinyin: "xíguàn", meaning: "quen, thói quen", example: "慢慢习惯了" },
+      { hanzi: "苦", pinyin: "kǔ", meaning: "khổ, đắng", example: "日子很苦" },
+      { hanzi: "加油", pinyin: "jiāyóu", meaning: "cố lên! cổ vũ", example: "加油！" },
+      { hanzi: "更", pinyin: "gèng", meaning: "càng, hơn nữa", example: "明天会更好" },
+    ],
+    grammar_notes: "• V着V着就 — làm mãi rồi sẽ (thay đổi dần dần)\n• 会更...— sẽ càng... hơn",
+    cultural_note: "加油 (jiāyóu) nghĩa đen là 'đổ thêm dầu' — châm dầu vào đèn để sáng hơn. Nay là câu cổ vũ phổ biến nhất trong tiếng Trung.",
+  },
+  l5: {
+    _id: "l5", title: "Cuộc trò chuyện với bà", content_type: "dialogue", mood: "healing", level: "hsk2",
+    chinese_text: "奶奶，你年轻的时候喜欢什么？\n我喜欢看星星，听故事。\n跟现在的你一样。\n是啊，有些事不会变。",
+    pinyin: "Nǎinai, nǐ niánqīng de shíhou xǐhuān shénme?\nWǒ xǐhuān kàn xīngxīng, tīng gùshi.\nGēn xiànzài de nǐ yīyàng.\nShì a, yǒu xiē shì bù huì biàn.",
+    translation: "Bà ơi, hồi trẻ bà thích gì?\nBà thích nhìn sao, nghe chuyện kể.\nGiống bạn bây giờ vậy.\nÀ đúng rồi, có những thứ không thay đổi.",
+    vocabulary: [
+      { hanzi: "奶奶", pinyin: "nǎinai", meaning: "bà nội", example: "奶奶很温柔" },
+      { hanzi: "年轻", pinyin: "niánqīng", meaning: "trẻ tuổi", example: "年轻的时候" },
+      { hanzi: "星星", pinyin: "xīngxīng", meaning: "ngôi sao", example: "看星星" },
+      { hanzi: "故事", pinyin: "gùshi", meaning: "câu chuyện", example: "听故事" },
+    ],
+    grammar_notes: "• 年轻的时候 — hồi còn trẻ\n• 跟...一样 — giống như...\n• 有些 + N + 不会变 — có những thứ không thay đổi",
+    cultural_note: "奶奶 (bà nội) và 外婆 (bà ngoại) đóng vai trò quan trọng trong gia đình Trung Hoa. Quan hệ ba thế hệ là nền tảng của văn hóa gia đình Trung Quốc.",
+  },
+  l6: {
+    _id: "l6", title: "Đêm nhìn sao trời", content_type: "poem", mood: "aesthetic", level: "hsk3",
+    chinese_text: "抬头看星空，\n心里的烦恼都变小了。\n原来宇宙那么大，\n我的忧愁那么小。",
+    pinyin: "Tái tóu kàn xīngkōng,\nXīn lǐ de fánnǎo dōu biàn xiǎo le.\nYuánlái yǔzhòu nàme dà,\nWǒ de yōuchóu nàme xiǎo.",
+    translation: "Ngẩng đầu nhìn bầu trời sao,\nNhững phiền muộn trong lòng đều trở nên nhỏ bé.\nThì ra vũ trụ rộng lớn thế,\nNỗi buồn của tôi nhỏ bé thế thôi.",
+    vocabulary: [
+      { hanzi: "烦恼", pinyin: "fánnǎo", meaning: "phiền muộn, lo âu", example: "没有烦恼" },
+      { hanzi: "宇宙", pinyin: "yǔzhòu", meaning: "vũ trụ", example: "宇宙很大" },
+      { hanzi: "原来", pinyin: "yuánlái", meaning: "thì ra, hóa ra", example: "原来如此" },
+      { hanzi: "忧愁", pinyin: "yōuchóu", meaning: "nỗi buồn, ưu sầu", example: "忘记忧愁" },
+    ],
+    grammar_notes: "• 原来 — thì ra là (nhận ra bất ngờ)\n• 那么 + adj — thế, như vậy (nhấn mạnh)\n• 都变...了 — đều trở nên... rồi",
+    cultural_note: "Câu thơ nổi tiếng của Lý Bạch: 举头望明月，低头思故乡 — ngẩng đầu nhìn trăng, cúi đầu nhớ quê. Nhìn trời đêm để giải tỏa tâm trạng là motif xuyên suốt thơ Đường.",
+  },
+  l7: {
+    _id: "l7", title: "Hôm nay uống trà", content_type: "dialogue", mood: "aesthetic", level: "hsk2",
+    chinese_text: "今天喝茶还是咖啡？\n喝茶吧，安静一下。\n好，我来泡茶。\n谢谢你，陪我坐坐。",
+    pinyin: "Jīntiān hē chá háishi kāfēi?\nHē chá ba, ānjìng yīxià.\nHǎo, wǒ lái pào chá.\nXièxiè nǐ, péi wǒ zuò zuò.",
+    translation: "Hôm nay uống trà hay cà phê?\nUống trà đi, yên tĩnh một chút.\nĐược, để tôi pha trà.\nCảm ơn bạn, ngồi với tôi một lúc nhé.",
+    vocabulary: [
+      { hanzi: "安静", pinyin: "ānjìng", meaning: "yên tĩnh, bình yên", example: "今天很安静" },
+      { hanzi: "泡茶", pinyin: "pào chá", meaning: "pha trà", example: "我来泡茶" },
+      { hanzi: "陪", pinyin: "péi", meaning: "đồng hành, ở bên", example: "陪我坐坐" },
+      { hanzi: "茶", pinyin: "chá", meaning: "trà", example: "喝一杯茶" },
+    ],
+    grammar_notes: "• A还是B — A hay B? (câu hỏi lựa chọn)\n• 来 + V — để tôi làm gì đó (tự nguyện)\n• V坐 — ngồi một lúc (V lặp = làm một chút)",
+    cultural_note: "Văn hóa trà (茶文化) Trung Hoa hơn 4000 năm. 陪 không chỉ là 'ở cùng' mà là 'dành thời gian và sự chú ý cho ai đó' — một trong những từ thể hiện tình cảm sâu sắc nhất.",
+  },
+  l8: {
+    _id: "l8", title: "Tình bạn thực sự", content_type: "story", mood: "friendship", level: "hsk2",
+    chinese_text: "真正的朋友，\n不需要每天联系，\n但每次见面，\n都像从未分开过。",
+    pinyin: "Zhēnzhèng de péngyǒu,\nBù xūyào měitiān liánxì,\nDàn měi cì jiànmiàn,\nDōu xiàng cóng wèi fēnkāi guò.",
+    translation: "Bạn bè thực sự,\nKhông cần liên lạc mỗi ngày,\nNhưng mỗi lần gặp lại,\nVẫn như chưa từng xa cách.",
+    vocabulary: [
+      { hanzi: "真正", pinyin: "zhēnzhèng", meaning: "thực sự, thật sự", example: "真正的朋友" },
+      { hanzi: "联系", pinyin: "liánxì", meaning: "liên lạc", example: "保持联系" },
+      { hanzi: "见面", pinyin: "jiànmiàn", meaning: "gặp mặt", example: "下次见面" },
+      { hanzi: "分开", pinyin: "fēnkāi", meaning: "chia cách, tách ra", example: "从未分开" },
+    ],
+    grammar_notes: "• 不需要 — không cần (phải)\n• 每次 + V — mỗi lần làm gì\n• 从未 + V过 — chưa bao giờ",
+    cultural_note: "Tình bạn lâu năm (老朋友) được coi trọng đặc biệt. Câu tục ngữ: 一日为友，终身为友 — một ngày là bạn, cả đời là bạn.",
+  },
+  l9: {
+    _id: "l9", title: "Tuổi thanh xuân", content_type: "poem", mood: "motivation", level: "hsk3",
+    chinese_text: "青春是一本书，\n翻过去的页不能再回头。\n但每一页都算数，\n哪怕是错的那页。",
+    pinyin: "Qīngchūn shì yī běn shū,\nFān guòqù de yè bùnéng zài huítóu.\nDàn měi yī yè dōu suànshù,\nNǎpà shì cuò de nà yè.",
+    translation: "Tuổi trẻ là một cuốn sách,\nTrang đã lật qua không thể quay lại.\nNhưng mỗi trang đều có giá trị,\nDù là trang sai lầm.",
+    vocabulary: [
+      { hanzi: "青春", pinyin: "qīngchūn", meaning: "tuổi thanh xuân", example: "青春很短暂" },
+      { hanzi: "翻", pinyin: "fān", meaning: "lật trang", example: "翻书" },
+      { hanzi: "算数", pinyin: "suànshù", meaning: "có giá trị, tính đến", example: "每一步都算数" },
+      { hanzi: "哪怕", pinyin: "nǎpà", meaning: "dù, thậm chí", example: "哪怕很难也要去" },
+    ],
+    grammar_notes: "• 不能再回头 — không thể quay đầu lại nữa\n• 都算数 — đều tính, đều có giá trị\n• 哪怕是...也... — dù là...cũng...",
+    cultural_note: "青春 là chủ đề trung tâm của văn học trẻ Trung Quốc. Phim C-drama '致青春' (Gửi tuổi thanh xuân) đã khiến từ này trở thành biểu tượng cảm xúc của cả thế hệ.",
+  },
+  l10: {
+    _id: "l10", title: "Mùa xuân về rồi", content_type: "story", mood: "healing", level: "hsk2",
+    chinese_text: "冬天走了，春天来了。\n花开了，心情也好了。\n原来希望就像春天，\n只要等，就会来。",
+    pinyin: "Dōngtiān zǒu le, chūntiān lái le.\nHuā kāi le, xīnqíng yě hǎo le.\nYuánlái xīwàng jiù xiàng chūntiān,\nZhǐyào děng, jiù huì lái.",
+    translation: "Mùa đông đi rồi, mùa xuân đến rồi.\nHoa nở rồi, tâm trạng cũng tốt lên rồi.\nThì ra hy vọng giống như mùa xuân,\nChỉ cần chờ đợi, rồi sẽ đến.",
+    vocabulary: [
+      { hanzi: "冬天", pinyin: "dōngtiān", meaning: "mùa đông", example: "冬天很冷" },
+      { hanzi: "春天", pinyin: "chūntiān", meaning: "mùa xuân", example: "春天来了" },
+      { hanzi: "花开", pinyin: "huā kāi", meaning: "hoa nở", example: "花开了" },
+      { hanzi: "希望", pinyin: "xīwàng", meaning: "hy vọng", example: "有希望就有未来" },
+    ],
+    grammar_notes: "• V了 — V rồi (hoàn thành/thay đổi trạng thái)\n• 就像 — giống như (so sánh)\n• 只要...就... — chỉ cần...là/thì...",
+    cultural_note: "Mùa xuân (春天) gắn liền với Tết Nguyên Đán (春节), sự đổi mới và hy vọng. 春 là một trong những chữ được viết nhiều nhất dịp Tết Trung Hoa.",
+  },
+  l11: {
+    _id: "l11", title: "Khoảng lặng để nghỉ ngơi", content_type: "quote", mood: "healing", level: "hsk3",
+    chinese_text: "什么都不想，也是一种修行。\n让大脑放空，\n让心慢慢沉淀。\n你不需要时刻都有答案。",
+    pinyin: "Shénme dōu bù xiǎng, yě shì yī zhǒng xiūxíng.\nRàng dànǎo fàngkōng,\nRàng xīn màn man chéndiàn.\nNǐ bù xūyào shíkè dōu yǒu dá'àn.",
+    translation: "Không nghĩ gì cũng là một cách tu tâm.\nĐể não bộ trống rỗng,\nĐể trái tim từ từ lắng xuống.\nBạn không cần phải lúc nào cũng có câu trả lời.",
+    vocabulary: [
+      { hanzi: "修行", pinyin: "xiūxíng", meaning: "tu tập, rèn luyện tâm", example: "这是一种修行" },
+      { hanzi: "放空", pinyin: "fàngkōng", meaning: "trống rỗng, buông bỏ suy nghĩ", example: "让大脑放空" },
+      { hanzi: "沉淀", pinyin: "chéndiàn", meaning: "lắng đọng, trầm lắng", example: "心慢慢沉淀" },
+      { hanzi: "时刻", pinyin: "shíkè", meaning: "mọi lúc", example: "不需要时刻准备" },
+    ],
+    grammar_notes: "• 什么都不 + V — không V gì cả\n• 让 + N + V — để/khiến N làm V\n• 不需要时刻都 — không cần lúc nào cũng",
+    cultural_note: "放空 (fàngkōng) xuất phát từ Thiền định Phật giáo. Ngày nay Gen Z Trung Quốc dùng từ này cho trạng thái mindfulness — tắt điện thoại và cho phép bản thân nghỉ ngơi thực sự.",
+  },
+  l12: {
+    _id: "l12", title: "Ngụ ngôn về con đường", content_type: "poem", mood: "motivation", level: "hsk4",
+    chinese_text: "世上本无路，\n走的人多了，\n就成了路。\n你走的每一步，都在为后人开路。",
+    pinyin: "Shì shàng běn wú lù,\nZǒu de rén duō le,\nJiù chéng le lù.\nNǐ zǒu de měi yī bù, dōu zài wèi hòurén kāi lù.",
+    translation: "Trên đời vốn không có đường,\nNhiều người đi rồi,\nThành đường thôi.\nMỗi bước bạn đi đều đang mở đường cho người đi sau.",
+    vocabulary: [
+      { hanzi: "本", pinyin: "běn", meaning: "vốn, căn bản", example: "本来如此" },
+      { hanzi: "成", pinyin: "chéng", meaning: "trở thành", example: "变成了路" },
+      { hanzi: "后人", pinyin: "hòurén", meaning: "thế hệ sau", example: "为后人着想" },
+      { hanzi: "开路", pinyin: "kāi lù", meaning: "mở đường, khai phá", example: "为后人开路" },
+    ],
+    grammar_notes: "• 本无 — vốn không có\n• V的人多了，就... — nhiều người V rồi thì...\n• 在为...开路 — đang mở đường cho...",
+    cultural_note: "Câu nói của Lỗ Tấn: '其实地上本没有路，走的人多了，也便成了路' — một trong những câu được trích dẫn nhiều nhất văn học hiện đại Trung Quốc, về tinh thần tiên phong.",
+  },
+
 };
 
 export default function LessonDetailPage() {
@@ -117,7 +245,7 @@ export default function LessonDetailPage() {
   const [lesson, setLesson] = useState<Lesson | null>(null);
   const [loading, setLoading] = useState(true);
   const [completed, setCompleted] = useState(false);
-  const [activeSection, setActiveSection] = useState<"text" | "vocab" | "notes">("text");
+  const [activeSection, setActiveSection] = useState<"text" | "vocab" | "notes" | "pronunciation">("text");
   const { xp, show: showXP, awardXP: showXPAnimation } = useXPToast();
   // Server-side XP + streak sync (nếu đã login)
   const { awardXP: syncXP } = useProgress();
@@ -224,7 +352,7 @@ export default function LessonDetailPage() {
             <Volume2 size={13} /> Nghe toàn bài
           </button>
           <button
-            onClick={togglePinyin}
+            onClick={togglePinyin} aria-label="Bật/tắt pinyin"
             className="flex items-center gap-1.5 text-xs bg-surface2 text-[var(--text-muted)] hover:text-white px-3 py-2 rounded-full transition-colors"
           >
             {showPinyin ? <EyeOff size={13} /> : <Eye size={13} />}
@@ -235,8 +363,8 @@ export default function LessonDetailPage() {
 
       {/* Section tabs */}
       <div className="flex gap-1 px-4 mb-6 bg-surface2 mx-4 p-1 rounded-2xl">
-        {(["text", "vocab", "notes"] as const).map((tab) => {
-          const labels = { text: "📖 Nội dung", vocab: "📚 Từ vựng", notes: "💡 Ghi chú" };
+        {(["text", "vocab", "notes", "pronunciation"] as const).map((tab) => {
+          const labels = { text: "📖 Nội dung", vocab: "📚 Từ vựng", notes: "💡 Ghi chú", pronunciation: "🎙️ Phát âm" };
           return (
             <button
               key={tab}
@@ -392,6 +520,32 @@ export default function LessonDetailPage() {
                 Đọc to câu tiếng Trung 3 lần, sau đó thử nói mà không nhìn phiên âm. Não sẽ ghi nhớ qua âm thanh tốt hơn nhiều so với chỉ nhìn.
               </p>
             </div>
+          </motion.div>
+        )}
+
+        {/* PRONUNCIATION SECTION */}
+        {activeSection === "pronunciation" && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="space-y-4"
+          >
+            <p className="text-sm text-[var(--text-muted)]">
+              Luyện phát âm từng câu trong bài. Nhấn <strong className="text-white">Nghe mẫu</strong> trước, sau đó nhấn mic để thử.
+            </p>
+            {sentences.map((sentence, i) => (
+              <PronunciationPractice
+                key={i}
+                targetText={sentence}
+                targetPinyin={pinyinLines[i] ?? ""}
+                translation={translationLines[i] ?? ""}
+                onScore={(score) => {
+                  if (score >= 80 && !completed) {
+                    void handleComplete();
+                  }
+                }}
+              />
+            ))}
           </motion.div>
         )}
       </div>

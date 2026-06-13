@@ -6,11 +6,15 @@
  * Filter tabs: Tất cả / Câu nói / Bài học
  */
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { Search, X, BookOpen, Quote, Loader2, ArrowLeft } from "lucide-react";
+import { Search, X, BookOpen, Quote, Loader2, ArrowLeft, GraduationCap } from "lucide-react";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
+import { playTTS } from "@/hooks/useTTS";
+import { saveWord, isWordSaved } from "@/lib/savedWords";
+// Logic tra cứu tách ra lib thuần (unit test được) — xem lib/hskSearch.ts
+import { searchHskVocab, type VocabHit } from "@/lib/hskSearch";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface QuoteResult {
@@ -105,7 +109,13 @@ export default function SearchPage() {
     inputRef.current?.focus();
   };
 
-  const isEmpty = !loading && results !== null && results.total === 0;
+  // Tra từ vựng HSK offline (hanzi / pinyin / nghĩa / âm Hán Việt) — tức thì, không cần API
+  const vocabHits = useMemo(() => searchHskVocab(query), [query]);
+
+  // Vocab chỉ hiện ở tab "Tất cả" → các tab khác vẫn báo rỗng như cũ
+  const isEmpty =
+    !loading && results !== null && results.total === 0 &&
+    (filter !== "all" || vocabHits.length === 0);
   const hasResults = results && results.total > 0;
 
   return (
@@ -140,16 +150,26 @@ export default function SearchPage() {
               onChange={(e) => setQuery(e.target.value)}
               onFocus={() => setFocused(true)}
               onBlur={() => setFocused(false)}
-              placeholder="Tìm câu nói, bài học, ký tự…"
+              placeholder="Tìm câu nói, bài học, ký tự…" aria-label="Tìm câu nói, bài học, ký tự"
               className="flex-1 bg-transparent text-sm text-[#F5F0EB] placeholder:text-[#5A5450] outline-none"
             />
             {loading && <Loader2 size={15} className="text-[#8A8078] animate-spin shrink-0" />}
             {!loading && query && (
-              <button onClick={clearQuery} className="text-[#5A5450] hover:text-[#8A8078] transition-colors">
+              <button onClick={clearQuery} aria-label="Xóa tìm kiếm" className="text-[#5A5450] hover:text-[#8A8078] transition-colors">
                 <X size={15} />
               </button>
             )}
           </div>
+
+          {/* Vẽ tay tra chữ */}
+          <button
+            onClick={() => router.push("/viet-tay")}
+            aria-label="Vẽ tay tra chữ Hán"
+            title="Vẽ tay tra chữ Hán"
+            className="shrink-0 w-10 h-10 rounded-2xl bg-[#1A1A1A] border border-[rgba(255,255,255,0.08)] flex items-center justify-center text-[#E8504A] hover:border-[#E8504A]/60 transition-colors text-lg"
+          >
+            ✍️
+          </button>
         </div>
 
         {/* Filter tabs */}
@@ -201,9 +221,26 @@ export default function SearchPage() {
             <p className="text-4xl mb-3">🔍</p>
             <p className="text-[#F5F0EB] font-medium">Không tìm thấy kết quả</p>
             <p className="text-sm text-[#5A5450] mt-1">
-              Thử từ khoá khác như "yêu", "hạnh phúc"...
+              Thử từ khoá khác như &ldquo;yêu&rdquo;, &ldquo;hạnh phúc&rdquo;...
             </p>
           </div>
+        )}
+
+        {/* Từ vựng HSK (offline) */}
+        {query && vocabHits.length > 0 && filter === "all" && (
+          <section className="pt-5">
+            <div className="flex items-center gap-2 mb-3">
+              <GraduationCap size={14} className="text-[#E8A838]" />
+              <p className="text-xs font-semibold uppercase tracking-widest text-[#8A8078]">
+                Từ vựng HSK ({vocabHits.length})
+              </p>
+            </div>
+            <div className="space-y-2">
+              {vocabHits.map((w) => (
+                <VocabResultCard key={`${w.level}-${w.hanzi}`} word={w} />
+              ))}
+            </div>
+          </section>
         )}
 
         {/* Results */}
@@ -245,6 +282,58 @@ export default function SearchPage() {
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+// ─── Vocab Result Card (HSK) ──────────────────────────────────────────────────
+function VocabResultCard({ word }: { word: VocabHit }) {
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    setSaved(isWordSaved(word.hanzi));
+  }, [word.hanzi]);
+
+  return (
+    <div className="flex items-center gap-3 rounded-2xl p-4 border transition-all bg-[#141414] border-[rgba(255,255,255,0.06)] hover:border-[rgba(232,168,56,0.35)]">
+      <button
+        onClick={() => playTTS(word.hanzi)}
+        aria-label={`Nghe phát âm ${word.hanzi}`}
+        title="Bấm để nghe phát âm"
+        className="flex items-center gap-3 flex-1 min-w-0 text-left"
+      >
+        <span lang="zh-CN" className="font-chinese text-2xl text-[#F5F0EB] shrink-0">
+          {word.hanzi}
+        </span>
+        <span className="flex-1 min-w-0">
+          <span className="block text-xs text-[#8A8078]">
+            {word.pinyin}
+            {word.hanViet && <span className="text-[#E8A838]"> · HV: {word.hanViet}</span>}
+          </span>
+          <span className="block text-sm text-[#C4B9B0] truncate">{word.meaning}</span>
+        </span>
+      </button>
+      <Link
+        href={`/character/${encodeURIComponent(word.hanzi)}`}
+        title="Xem chi tiết từ"
+        className="shrink-0 text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full bg-[#242424] text-[#5A5450] hover:text-[#E8A838] transition-colors"
+      >
+        HSK {word.level} →
+      </Link>
+      <button
+        onClick={async () => {
+          await saveWord({ hanzi: word.hanzi, pinyin: word.pinyin, meaning: word.meaning, example: word.example });
+          setSaved(true);
+        }}
+        aria-label={saved ? "Đã lưu vào sổ tay" : "Lưu vào sổ tay từ"}
+        title={saved ? "Đã lưu vào sổ tay" : "Lưu vào sổ tay từ"}
+        className={cn(
+          "shrink-0 w-8 h-8 rounded-xl flex items-center justify-center text-sm transition-colors",
+          saved ? "text-[#E8A838]" : "text-[#5A5450] hover:text-[#E8A838]"
+        )}
+      >
+        {saved ? "✓" : "🔖"}
+      </button>
     </div>
   );
 }

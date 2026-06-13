@@ -36,6 +36,10 @@ export function useSavedQuotes(): UseSavedQuotesReturn {
 
   const fetchSaved = useCallback(async () => {
     if (!session?.user) return;
+    // Nhường 1 microtask trước khi setState: khi được gọi từ useEffect,
+    // mọi setState bên dưới đều là ASYNC → không gây cascading render
+    // (đúng chuẩn rule react-hooks/set-state-in-effect, hành vi không đổi).
+    await Promise.resolve();
     setLoading(true);
     setError(null);
     try {

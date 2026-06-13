@@ -8,8 +8,9 @@
 
 import { useEffect, useState, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Loader2, Sparkles, Check, X } from "lucide-react";
+import { Loader2, Sparkles, Check, X, BellPlus } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { invalidateDueCount } from "@/hooks/useDueCount";
 
 interface TooltipPos { x: number; y: number }
 
@@ -53,6 +54,7 @@ export default function TextSelectionTooltip() {
   const [hint, setHint] = useState<HintData | null>(null);
   const [guess, setGuess] = useState("");
   const [checkResult, setCheckResult] = useState<CheckData | null>(null);
+  const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">("idle");
 
   const tooltipRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -64,8 +66,30 @@ export default function TextSelectionTooltip() {
     setHint(null);
     setGuess("");
     setCheckResult(null);
+    setSaveState("idle");
     if (abortRef.current) { abortRef.current.abort(); abortRef.current = null; }
   }, []);
+
+  const handleSaveToDeck = useCallback(async (meaning: string) => {
+    if (!selectedText || !meaning) return;
+    setSaveState("saving");
+    try {
+      const res = await fetch("/api/user/vocabulary", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          hanzi: selectedText,
+          meaning,
+          card_type: selectedText.length > 1 ? "sentence" : "word",
+        }),
+      });
+      // 200 = đã thêm hoặc đã có sẵn trong bộ thẻ → coi như thành công
+      if (res.ok) invalidateDueCount();
+      setSaveState(res.ok ? "saved" : "idle");
+    } catch {
+      setSaveState("idle");
+    }
+  }, [selectedText]);
 
   const fetchHint = useCallback(async (text: string, ctx: string) => {
     if (abortRef.current) abortRef.current.abort();
@@ -137,6 +161,7 @@ export default function TextSelectionTooltip() {
       setHint(null);
       setGuess("");
       setCheckResult(null);
+      setSaveState("idle");
 
       fetchHint(text, ctx);
     };
@@ -214,7 +239,7 @@ export default function TextSelectionTooltip() {
           {phase === "loading_hint" && (
             <div className="flex items-center gap-1.5 text-xs text-[#5A5450]">
               <Loader2 size={11} className="animate-spin" />
-              AI dang goi y...
+              AI đang gợi ý...
             </div>
           )}
 
@@ -239,14 +264,14 @@ export default function TextSelectionTooltip() {
                 <p className="text-[10px] text-[#3A3A3A]">{hint.usage_note}</p>
               )}
               <div className="pt-2" style={{ borderTop: "1px solid rgba(255,255,255,0.05)" }}>
-                <p className="text-[10px] text-[#5A5450] mb-1.5">Ban nghi la gi?</p>
+                <p className="text-[10px] text-[#5A5450] mb-1.5">Bạn nghĩ là gì?</p>
                 <div className="flex gap-1.5">
                   <input
                     ref={inputRef}
                     value={guess}
                     onChange={(e) => setGuess(e.target.value)}
                     onKeyDown={(e) => e.key === "Enter" && guess.trim() && handleCheck()}
-                    placeholder="Nhap du doan..."
+                    placeholder="Nhập dự đoán..." aria-label="Nhập dự đoán"
                     className="flex-1 bg-[#1A1A1A] rounded-xl px-2.5 py-1.5 text-xs text-[#F5F0EB] placeholder-[#3A3A3A] outline-none"
                     style={{ border: "1px solid rgba(255,255,255,0.08)" }}
                   />
@@ -268,7 +293,7 @@ export default function TextSelectionTooltip() {
           {/* Checking */}
           {phase === "checking" && (
             <div className="flex items-center gap-1.5 text-xs text-[#5A5450]">
-              <Loader2 size={11} className="animate-spin" /> Dang kiem tra...
+              <Loader2 size={11} className="animate-spin" /> Đang kiểm tra...
             </div>
           )}
 
@@ -294,11 +319,29 @@ export default function TextSelectionTooltip() {
                 className="rounded-xl px-3 py-2"
                 style={{ background: "rgba(138,157,201,0.08)", border: "1px solid rgba(138,157,201,0.15)" }}
               >
-                <p className="text-[10px] text-[#5A5450] mb-0.5">Nghia chinh xac:</p>
+                <p className="text-[10px] text-[#5A5450] mb-0.5">Nghĩa chính xác:</p>
                 <p className="text-xs text-[#F5F0EB] font-medium">{checkResult.actual_meaning}</p>
               </div>
+              <button
+                onClick={() => handleSaveToDeck(checkResult.actual_meaning)}
+                disabled={saveState !== "idle"}
+                className="w-full flex items-center justify-center gap-1.5 rounded-xl py-1.5 text-[11px] font-semibold transition-all"
+                style={{
+                  background: saveState === "saved" ? "rgba(143,175,143,0.18)" : "rgba(232,99,74,0.15)",
+                  color: saveState === "saved" ? "#8FAF8F" : "#E8634A",
+                  border: "1px solid rgba(232,99,74,0.25)",
+                }}
+              >
+                {saveState === "saving" ? (
+                  <><Loader2 size={11} className="animate-spin" /> Đang lưu...</>
+                ) : saveState === "saved" ? (
+                  <><Check size={11} /> Đã thêm vào bộ nhắc ôn</>
+                ) : (
+                  <><BellPlus size={11} /> Lưu &amp; nhắc ôn ngắt quãng</>
+                )}
+              </button>
               <button onClick={close} className="text-[10px] text-[#5A5450] hover:text-[#8A8078] transition-colors">
-                Dong
+                Đóng
               </button>
             </div>
           )}

@@ -71,6 +71,8 @@ interface AppState {
   // AI Tutor
   selectedPersona: string;
   setPersona: (persona: string) => void;
+  selectedVoice: string;
+  setSelectedVoice: (voice: string) => void;
 
   // Chat messages (per session, không persist)
   chatMessages: { role: "user" | "assistant"; content: string }[];
@@ -127,6 +129,8 @@ export const useAppStore = create<AppState>()(
       // AI Tutor
       selectedPersona: "caring_friend",
       setPersona: (persona) => set({ selectedPersona: persona }),
+      selectedVoice: "EXAVITQu4vr4xnSDxMaL",
+      setSelectedVoice: (voice) => set({ selectedVoice: voice }),
 
       // Chat — KHÔNG persist
       chatMessages: [],
@@ -141,6 +145,7 @@ export const useAppStore = create<AppState>()(
         showPinyin: state.showPinyin,
         savedQuoteIds: state.savedQuoteIds,
         selectedPersona: state.selectedPersona,
+        selectedVoice: state.selectedVoice,
         feedMoodFilter: state.feedMoodFilter,
         feedLevelFilter: state.feedLevelFilter,
         user: state.user,

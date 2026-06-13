@@ -8,13 +8,14 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-config";
 import { connectDB } from "@/lib/mongodb";
 import Post from "@/models/Post";
+import { checkRateLimit } from "@/lib/ratelimit";
 
 export async function GET(req: NextRequest) {
   try {
     await connectDB();
     const sort  = req.nextUrl.searchParams.get("sort") ?? "new";
     const mood  = req.nextUrl.searchParams.get("mood") ?? "";
-    const page  = parseInt(req.nextUrl.searchParams.get("page") ?? "1");
+    const page  = Math.max(1, parseInt(req.nextUrl.searchParams.get("page") ?? "1") || 1);
     const limit = 20;
 
     const filter: Record<string, unknown> = {};
@@ -43,6 +44,13 @@ export async function POST(req: NextRequest) {
     const session = await (getServerSession as any)(authOptions);
     if (!session?.user?.email) {
       return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
+    }
+
+    if (!checkRateLimit(`post:${session.user.email}`, 10)) {
+      return NextResponse.json(
+        { error: "Bạn đăng bài quá nhanh. Vui lòng thử lại sau 1 phút." },
+        { status: 429 }
+      );
     }
 
     const body = await req.json() as {

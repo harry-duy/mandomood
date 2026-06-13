@@ -8,7 +8,7 @@
  *   <button onClick={subscribe}>Bật thông báo</button>
  */
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useSyncExternalStore } from "react";
 
 const VAPID_PUBLIC = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? "";
 
@@ -19,26 +19,30 @@ function urlBase64ToUint8Array(base64: string): Uint8Array {
   return Uint8Array.from([...rawData].map((c) => c.charCodeAt(0)));
 }
 
+/**
+ * `supported` là hằng số phía client (không đổi sau khi load) → dùng
+ * useSyncExternalStore với server-snapshot = false: SSR render false,
+ * client render giá trị thật ngay lần render thứ 2 — không setState trong
+ * effect, không lệch hydration. (Pattern chuẩn React 19 cho client-only value.)
+ */
+const emptySubscribe = () => () => {};
+const getSupported = () =>
+  typeof window !== "undefined" && "serviceWorker" in navigator && "PushManager" in window;
+const getSupportedServer = () => false;
+
 export function usePushNotification() {
-  const [supported, setSupported] = useState(false);
+  const supported = useSyncExternalStore(emptySubscribe, getSupported, getSupportedServer);
   const [subscribed, setSubscribed] = useState(false);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    const ok =
-      typeof window !== "undefined" &&
-      "serviceWorker" in navigator &&
-      "PushManager" in window;
-    setSupported(ok);
-
-    if (ok) {
-      navigator.serviceWorker.ready.then((reg) => {
-        reg.pushManager.getSubscription().then((sub) => {
-          setSubscribed(!!sub);
-        });
-      }).catch(() => null);
-    }
-  }, []);
+    if (!supported) return;
+    // setSubscribed chỉ chạy trong .then (async) — không phải sync setState
+    navigator.serviceWorker.ready
+      .then((reg) => reg.pushManager.getSubscription())
+      .then((sub) => setSubscribed(!!sub))
+      .catch(() => null);
+  }, [supported]);
 
   const subscribe = async (): Promise<boolean> => {
     if (!supported || !VAPID_PUBLIC) return false;

@@ -32,12 +32,22 @@ declare module "hanzi-writer" {
     onMistake?: (strokeData: { strokeNum: number; mistakesOnStroke: number }) => void;
   }
 
+  interface CharacterData {
+    strokes: string[];
+    medians: number[][][];
+  }
+
   class HanziWriter {
     static create(
       element: HTMLElement | string,
       character: string,
       options?: HanziWriterOptions
     ): HanziWriter;
+
+    static loadCharacterData(
+      character: string,
+      options?: HanziWriterOptions
+    ): Promise<CharacterData | null>;
 
     animateCharacter(options?: AnimateOptions): void;
     animateStroke(strokeNum: number, options?: AnimateOptions): void;

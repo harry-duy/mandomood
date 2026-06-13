@@ -14,11 +14,23 @@ export interface IUser extends Document {
   last_active: Date;
   premium: boolean;
   premium_until?: Date;
+  /** Hạn dùng thử Premium 30 ngày (tặng khi đăng nhập lần đầu) */
+  trial_until?: Date;
+  /** Quota AI mỗi ngày cho user free (reset khi sang ngày mới) */
+  ai_quota_date?: string;
+  ai_story_used?: number;
+  ai_chat_used?: number;
+  /** Thành tích thi /test — cập nhật mỗi lần sync (nguồn: testResults trong SyncData) */
+  test_best_pct?: number;
+  tests_taken?: number;
+  stripe_customer_id?: string;
+  last_checkout_session?: string;
   tutor_persona: "cold_girl" | "caring_friend" | "funny_bff" | "ceo_mentor" | "idol_style" | "anime_sensei";
   saved_lessons: mongoose.Types.ObjectId[];
   saved_quotes: mongoose.Types.ObjectId[];
   created_at: Date;
   push_subscription?: Record<string, unknown>;
+  preferred_voice?: string;
 }
 
 const UserSchema = new Schema<IUser>(
@@ -40,6 +52,14 @@ const UserSchema = new Schema<IUser>(
     last_active: { type: Date, default: Date.now },
     premium: { type: Boolean, default: false },
     premium_until: { type: Date },
+    trial_until: { type: Date },
+    ai_quota_date: { type: String },
+    ai_story_used: { type: Number, default: 0 },
+    ai_chat_used: { type: Number, default: 0 },
+    test_best_pct: { type: Number, default: 0 },
+    tests_taken: { type: Number, default: 0 },
+    stripe_customer_id: { type: String },
+    last_checkout_session: { type: String },
     tutor_persona: {
       type: String,
       enum: ["cold_girl", "caring_friend", "funny_bff", "ceo_mentor", "idol_style", "anime_sensei"],
@@ -48,6 +68,7 @@ const UserSchema = new Schema<IUser>(
     saved_lessons: [{ type: Schema.Types.ObjectId, ref: "Lesson" }],
     saved_quotes: [{ type: Schema.Types.ObjectId, ref: "Quote" }],
     push_subscription: { type: Schema.Types.Mixed },
+    preferred_voice: { type: String, default: 'EXAVITQu4vr4xnSDxMaL' },
   },
   { timestamps: { createdAt: "created_at", updatedAt: "updated_at" } }
 );
@@ -60,6 +81,10 @@ function getNextMonday(): Date {
   d.setHours(0, 0, 0, 0);
   return d;
 }
+
+UserSchema.index({ xp: -1 });
+UserSchema.index({ weekly_xp: -1 });
+UserSchema.index({ streak_days: -1 });
 
 const User = mongoose.models.User ?? mongoose.model<IUser>("User", UserSchema);
 export default User;

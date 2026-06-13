@@ -13,12 +13,13 @@
 "use client";
 
 import { useState, useCallback, useRef } from "react";
+import { useAppStore } from "@/store/useAppStore";
 
 export function useTTS() {
   const [speaking, setSpeaking] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  // Cache blob URLs in memory so we don't re-fetch same text
   const blobCache = useRef<Map<string, string>>(new Map());
+  const selectedVoice = useAppStore((s) => s.selectedVoice);
 
   const stopCurrent = useCallback(() => {
     if (audioRef.current) {
@@ -33,21 +34,42 @@ export function useTTS() {
 
   const speakWebSpeech = useCallback((text: string) => {
     if (!("speechSynthesis" in window)) return;
-    window.speechSynthesis.cancel();
-    const u = new SpeechSynthesisUtterance(text);
-    u.lang = "zh-CN";
-    u.rate = 0.85;
-    u.pitch = 1;
-    // Prefer a Mandarin voice if available
+
+    const utter = (voices: SpeechSynthesisVoice[]) => {
+      window.speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance(text);
+      u.lang = "zh-CN";
+      u.rate = 0.85;
+      u.pitch = 1;
+      // Prefer a Mandarin voice if available (local first, then any zh)
+      const zhVoice =
+        voices.find((v) => v.lang.startsWith("zh") && v.localService) ??
+        voices.find((v) => v.lang.startsWith("zh"));
+      if (zhVoice) u.voice = zhVoice;
+      u.onstart = () => setSpeaking(true);
+      u.onend = () => setSpeaking(false);
+      u.onerror = () => setSpeaking(false);
+      window.speechSynthesis.speak(u);
+    };
+
+    // Chrome loads voices asynchronously — getVoices() can be empty on first call.
     const voices = window.speechSynthesis.getVoices();
-    const zhVoice = voices.find(
-      (v) => v.lang.startsWith("zh") && v.localService
-    );
-    if (zhVoice) u.voice = zhVoice;
-    u.onstart = () => setSpeaking(true);
-    u.onend = () => setSpeaking(false);
-    u.onerror = () => setSpeaking(false);
-    window.speechSynthesis.speak(u);
+    if (voices.length > 0) {
+      utter(voices);
+    } else {
+      const onVoices = () => {
+        window.speechSynthesis.onvoiceschanged = null;
+        utter(window.speechSynthesis.getVoices());
+      };
+      window.speechSynthesis.onvoiceschanged = onVoices;
+      // Safety fallback: speak anyway after a short wait if event never fires
+      setTimeout(() => {
+        if (window.speechSynthesis.onvoiceschanged === onVoices) {
+          window.speechSynthesis.onvoiceschanged = null;
+          utter(window.speechSynthesis.getVoices());
+        }
+      }, 250);
+    }
   }, []);
 
   const speak = useCallback(
@@ -56,12 +78,19 @@ export function useTTS() {
       stopCurrent();
       setSpeaking(true);
 
+      // "web" voice → skip ElevenLabs, go straight to Web Speech
+      if (selectedVoice === 'web') {
+        speakWebSpeech(text);
+        return;
+      }
+
       // Try ElevenLabs first
       try {
         let blobUrl = blobCache.current.get(text);
         if (!blobUrl) {
+          const voiceParam = selectedVoice && selectedVoice !== 'web' ? `&voice=${encodeURIComponent(selectedVoice)}` : '';
           const res = await fetch(
-            `/api/tts?text=${encodeURIComponent(text)}`
+            `/api/tts?text=${encodeURIComponent(text)}${voiceParam}`
           );
           if (res.ok) {
             const blob = await res.blob();
@@ -88,7 +117,7 @@ export function useTTS() {
         speakWebSpeech(text);
       }
     },
-    [stopCurrent, speakWebSpeech]
+    [stopCurrent, speakWebSpeech, selectedVoice]
   );
 
   return { speak, speaking, stop: stopCurrent };
@@ -118,5 +147,10 @@ function webSpeechFallback(text: string) {
   const u = new SpeechSynthesisUtterance(text);
   u.lang = "zh-CN";
   u.rate = 0.85;
+  const voices = window.speechSynthesis.getVoices();
+  const zhVoice =
+    voices.find((v) => v.lang.startsWith("zh") && v.localService) ??
+    voices.find((v) => v.lang.startsWith("zh"));
+  if (zhVoice) u.voice = zhVoice;
   window.speechSynthesis.speak(u);
 }

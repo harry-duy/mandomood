@@ -17,7 +17,7 @@ interface MongooseCache {
 }
 
 declare global {
-  // eslint-disable-next-line no-var
+  // `var` là bắt buộc cho khai báo global của TS (typescript-eslint không báo no-var ở đây)
   var mongoose: MongooseCache;
 }
 

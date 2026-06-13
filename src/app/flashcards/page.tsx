@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { invalidateDueCount } from "@/hooks/useDueCount";
 
 interface VocabCard {
   _id: string;
@@ -65,8 +66,8 @@ export default function FlashcardsPage() {
 
   useEffect(() => {
     if (status === "authenticated") fetchCards();
-    if (status === "unauthenticated") router.push("/login");
-  }, [status, fetchCards, router]);
+    if (status === "unauthenticated") setLoading(false);
+  }, [status, fetchCards]);
 
   const currentCard = cards[currentIdx];
 
@@ -80,6 +81,7 @@ export default function FlashcardsPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ cardId: currentCard._id, quality }),
       });
+      invalidateDueCount(); // thẻ vừa ôn không còn đến hạn → badge cập nhật
     } catch { /* non-critical */ }
 
     setStats(prev => ({
@@ -108,6 +110,32 @@ export default function FlashcardsPage() {
         )}
       />
     ));
+
+  if (status === "unauthenticated") {
+    return (
+      <div className="min-h-screen flex items-center justify-center px-6">
+        <div className="text-center max-w-sm">
+          <div className="text-5xl mb-4">🎴</div>
+          <h1 className="font-playfair text-xl font-bold mb-2">Flashcard SRS theo tài khoản</h1>
+          <p className="text-sm text-[var(--text-muted)] mb-6">
+            Đăng nhập để đồng bộ thẻ và lịch ôn trên mọi thiết bị — hoặc dùng
+            Bộ thẻ của tôi (không cần tài khoản, lưu trên máy).
+          </p>
+          <div className="flex flex-col gap-2">
+            <button onClick={() => router.push("/login")} className="btn-primary w-full">
+              Đăng nhập / Đăng ký
+            </button>
+            <button
+              onClick={() => router.push("/my-decks")}
+              className="w-full py-3 rounded-full border border-[rgba(255,255,255,0.12)] text-sm text-[var(--text-muted)] hover:text-[var(--text)] transition-colors"
+            >
+              🎴 Dùng Bộ thẻ của tôi (offline)
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (loading) {
     return (

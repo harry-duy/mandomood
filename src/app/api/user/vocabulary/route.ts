@@ -10,27 +10,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-config";
 import { connectDB } from "@/lib/mongodb";
 import Vocabulary from "@/models/Vocabulary";
-
-// SM-2 Spaced Repetition
-function sm2(
-  easeFactor: number,
-  interval: number,
-  repetitions: number,
-  quality: number // 0-5 (0-2 = fail, 3-5 = pass)
-): { easeFactor: number; interval: number; repetitions: number } {
-  if (quality < 3) {
-    // Failed — reset
-    return { easeFactor: Math.max(1.3, easeFactor - 0.2), interval: 1, repetitions: 0 };
-  }
-  // Passed
-  let newInterval: number;
-  if (repetitions === 0) newInterval = 1;
-  else if (repetitions === 1) newInterval = 6;
-  else newInterval = Math.round(interval * easeFactor);
-
-  const newEF = Math.max(1.3, easeFactor + 0.1 - (5 - quality) * (0.08 + (5 - quality) * 0.02));
-  return { easeFactor: newEF, interval: newInterval, repetitions: repetitions + 1 };
-}
+import { sm2, nextReviewDate, masteryFromReps } from "@/lib/srs";
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -56,9 +36,16 @@ export async function POST(req: NextRequest) {
   await connectDB();
   const body = await req.json();
   const { hanzi, pinyin, meaning, example_sentence, example_pinyin, example_translation, source_lesson } = body;
+  const card_type: "word" | "sentence" = body.card_type === "sentence" ? "sentence" : "word";
 
-  if (!hanzi || !pinyin || !meaning) {
-    return NextResponse.json({ error: "hanzi, pinyin, meaning required" }, { status: 400 });
+  // Bắt buộc hanzi + meaning. pinyin để optional: khi lưu nhanh từ tooltip/câu
+  // chuyện người học có thể chưa có pinyin — vẫn cho lưu để không cản trở thói quen học.
+  if (!hanzi || !meaning) {
+    return NextResponse.json({ error: "Thiếu dữ liệu: cần hanzi và meaning" }, { status: 400 });
+  }
+  // Chặn nội dung quá dài để tránh lạm dụng
+  if (String(hanzi).length > 200) {
+    return NextResponse.json({ error: "Nội dung quá dài (tối đa 200 ký tự)" }, { status: 400 });
   }
 
   try {
@@ -66,9 +53,9 @@ export async function POST(req: NextRequest) {
       { user_id: session.user.email, hanzi },
       {
         $setOnInsert: {
-          user_id: session.user.email, hanzi, pinyin, meaning,
+          user_id: session.user.email, hanzi, pinyin: pinyin ?? "", meaning,
           example_sentence, example_pinyin, example_translation,
-          source_lesson, created_at: new Date(),
+          source_lesson, card_type, created_at: new Date(),
         },
       },
       { upsert: true, new: true }
@@ -86,26 +73,41 @@ export async function PATCH(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.email) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  await connectDB();
-  const { cardId, quality } = await req.json(); // quality: 0-5
+  try {
+    await connectDB();
+    const { cardId, quality: rawQuality } = await req.json(); // quality: 0-5
 
-  const card = await Vocabulary.findOne({ _id: cardId, user_id: session.user.email });
-  if (!card) return NextResponse.json({ error: "Card not found" }, { status: 404 });
+    if (!cardId || typeof cardId !== "string" || !/^[0-9a-fA-F]{24}$/.test(cardId)) {
+      return NextResponse.json({ error: "cardId không hợp lệ" }, { status: 400 });
+    }
 
-  const { easeFactor, interval, repetitions } = sm2(
-    card.ease_factor, card.interval, card.repetitions, quality
-  );
+    // Validate quality: phải là số nguyên 0-5, nếu không SRS sẽ bị hỏng (NaN → Invalid Date)
+    const q = Number(rawQuality);
+    if (!Number.isFinite(q) || q < 0 || q > 5) {
+      return NextResponse.json({ error: "quality phải là số từ 0 đến 5" }, { status: 400 });
+    }
+    const quality = Math.round(q);
 
-  const nextReview = new Date();
-  nextReview.setDate(nextReview.getDate() + interval);
+    const card = await Vocabulary.findOne({ _id: cardId, user_id: session.user.email });
+    if (!card) return NextResponse.json({ error: "Card not found" }, { status: 404 });
 
-  card.ease_factor = easeFactor;
-  card.interval = interval;
-  card.repetitions = repetitions;
-  card.next_review = nextReview;
-  card.last_reviewed = new Date();
-  card.mastery = Math.min(5, Math.floor(repetitions / 2));
+    const { easeFactor, interval, repetitions } = sm2(
+      card.ease_factor, card.interval, card.repetitions, quality
+    );
 
-  await card.save();
-  return NextResponse.json({ card, nextReview });
+    const nextReview = nextReviewDate(interval);
+
+    card.ease_factor = easeFactor;
+    card.interval = interval;
+    card.repetitions = repetitions;
+    card.next_review = nextReview;
+    card.last_reviewed = new Date();
+    card.mastery = masteryFromReps(repetitions);
+
+    await card.save();
+    return NextResponse.json({ card, nextReview });
+  } catch (e) {
+    console.error("[PATCH /api/user/vocabulary]", e);
+    return NextResponse.json({ error: "Lỗi server" }, { status: 500 });
+  }
 }

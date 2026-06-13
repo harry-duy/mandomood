@@ -17,7 +17,7 @@ export async function GET() {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const session = await (getServerSession as any)(authOptions);
     if (!session?.user?.email) {
-      return NextResponse.json({ error: "Chua dang nhap" }, { status: 401 });
+      return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
     }
 
     await connectDB();
@@ -35,7 +35,7 @@ export async function GET() {
     });
   } catch (error) {
     console.error("[GET /api/user/saved-quotes]", error);
-    return NextResponse.json({ error: "Loi server" }, { status: 500 });
+    return NextResponse.json({ error: "Lỗi server" }, { status: 500 });
   }
 }
 
@@ -44,12 +44,12 @@ export async function POST(req: NextRequest) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const session = await (getServerSession as any)(authOptions);
     if (!session?.user?.email) {
-      return NextResponse.json({ error: "Chua dang nhap" }, { status: 401 });
+      return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
     }
 
     const { quoteId } = await req.json() as { quoteId: string };
     if (!quoteId) {
-      return NextResponse.json({ error: "Thieu quoteId" }, { status: 400 });
+      return NextResponse.json({ error: "Thiếu quoteId" }, { status: 400 });
     }
 
     await connectDB();
@@ -83,6 +83,6 @@ export async function POST(req: NextRequest) {
     }
   } catch (error) {
     console.error("[POST /api/user/saved-quotes]", error);
-    return NextResponse.json({ error: "Loi server" }, { status: 500 });
+    return NextResponse.json({ error: "Lỗi server" }, { status: 500 });
   }
 }

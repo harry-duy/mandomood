@@ -8,6 +8,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { checkRateLimit } from "@/lib/ratelimit";
 
 const ELEVENLABS_API_KEY = process.env.ELEVENLABS_API_KEY;
 // Bella — multilingual v2, giọng nữ tự nhiên, hỗ trợ Chinese
@@ -26,7 +27,15 @@ function evictIfFull() {
 }
 
 export async function GET(req: NextRequest) {
+  // TTS tốn phí (ElevenLabs) → giới hạn 30 req/phút mỗi IP chống lạm dụng
+  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
+  if (!checkRateLimit(`tts:${ip}`, 30)) {
+    return NextResponse.json({ error: "Quá nhiều yêu cầu phát âm. Thử lại sau 1 phút." }, { status: 429 });
+  }
+
   const text = req.nextUrl.searchParams.get("text")?.trim() ?? "";
+  const voiceOverride = req.nextUrl.searchParams.get("voice")?.trim();
+  const VOICE_ID_FINAL = voiceOverride ?? VOICE_ID;
 
   if (!text) {
     return NextResponse.json({ error: "text is required" }, { status: 400 });
@@ -41,7 +50,7 @@ export async function GET(req: NextRequest) {
 
   // Truncate dài quá (ElevenLabs limit ~500 chars free tier)
   const safeText = text.slice(0, 500);
-  const cacheKey = `${VOICE_ID}:${safeText}`;
+  const cacheKey = `${VOICE_ID_FINAL}:${safeText}`;
 
   // Cache hit
   if (cache.has(cacheKey)) {
@@ -57,7 +66,7 @@ export async function GET(req: NextRequest) {
 
   try {
     const res = await fetch(
-      `https://api.elevenlabs.io/v1/text-to-speech/${VOICE_ID}`,
+      `https://api.elevenlabs.io/v1/text-to-speech/${VOICE_ID_FINAL}`,
       {
         method: "POST",
         headers: {

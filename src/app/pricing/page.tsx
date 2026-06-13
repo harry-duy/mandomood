@@ -12,6 +12,7 @@ import { Check, Zap, Crown, Sparkles, Star, Lock } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
+import { trackEvent } from "@/lib/analytics";
 
 const PLANS = [
   {
@@ -78,6 +79,7 @@ export default function PricingPage() {
       return;
     }
 
+    trackEvent("premium_checkout_click");
     setLoading(true);
     try {
       const plan = PLANS.find(p => p.key === selectedPlan)!;
@@ -122,6 +124,9 @@ export default function PricingPage() {
         </motion.h1>
         <p className="text-sm opacity-60 max-w-xs mx-auto" style={{ color: "var(--mm-text)" }}>
           Học tiếng Trung không giới hạn — không bài tập nhàm chán, chỉ cảm xúc và câu chuyện
+        </p>
+        <p className="text-xs max-w-xs mx-auto" style={{ color: "#D4AF37" }}>
+          🎁 Tài khoản mới được dùng thử Premium 30 ngày miễn phí — hết hạn tự về gói Free
         </p>
       </div>
 

@@ -9,6 +9,7 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Share2, Download, X, Instagram, Copy, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { trackEvent } from "@/lib/analytics";
 
 interface Quote {
   _id: string;
@@ -101,6 +102,7 @@ export default function ShareCard({ quote }: ShareCardProps) {
 
   const handleDownload = async () => {
     try {
+      trackEvent("share_card_download");
       const SIZE = 1080;
       const canvas = document.createElement("canvas");
       canvas.width = SIZE;
@@ -244,7 +246,7 @@ export default function ShareCard({ quote }: ShareCardProps) {
                 <X size={15} />
               </button>
 
-              <p className="text-sm font-semibold text-center mb-4">Chia se cau nay</p>
+              <p className="text-sm font-semibold text-center mb-4">Chia sẻ câu này</p>
 
               <div
                 className="w-full aspect-square rounded-2xl overflow-hidden relative mb-5"
@@ -308,7 +310,7 @@ export default function ShareCard({ quote }: ShareCardProps) {
                   )}
                 >
                   <Share2 size={18} />
-                  <span className="text-xs font-medium">Chia se</span>
+                  <span className="text-xs font-medium">Chia sẻ</span>
                 </button>
 
                 <button

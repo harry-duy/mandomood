@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+# Pre-commit: dọn null-byte trước khi commit để tránh bug build (TS1127).
+# Kích hoạt 1 lần: git config core.hooksPath .githooks
+set -e
+ROOT="$(git rev-parse --show-toplevel)"
+if [ -f "$ROOT/scripts/strip-null.sh" ]; then
+  bash "$ROOT/scripts/strip-null.sh"
+  # Re-stage các file vừa được dọn (nếu có)
+  git add -u
+fi

@@ -6,10 +6,15 @@
     "dev": "next dev --turbo",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
-    "seed": "tsx src/scripts/seed.ts"
+    "lint": "eslint .",
+    "test": "tsx --test src/lib/__tests__/*.test.ts",
+    "verify": "npm run strip-null && npm test && tsc --noEmit && eslint .",
+    "seed": "tsx src/scripts/seed.ts",
+    "strip-null": "bash scripts/strip-null.sh",
+    "prebuild": "bash scripts/strip-null.sh"
   },
   "dependencies": {
+    "@types/web-push": "^3.6.4",
     "bcryptjs": "^2.4.3",
     "clsx": "^2.1.1",
     "framer-motion": "^11.15.0",
@@ -23,9 +28,10 @@
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "sonner": "^1.7.2",
+    "stripe": "^17.0.0",
     "tailwind-merge": "^2.6.0",
-    "zustand": "^5.0.3",
-    "stripe": "^17.0.0"
+    "web-push": "^3.6.7",
+    "zustand": "^5.0.3"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",

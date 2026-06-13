@@ -1,0 +1,38 @@
+<svg width="1200" height="630" viewBox="0 0 1200 630" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0D0D0D"/>
+      <stop offset="100%" style="stop-color:#1C1C1E"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#E8634A"/>
+      <stop offset="100%" style="stop-color:#D4AF37"/>
+    </linearGradient>
+  </defs>
+  <!-- Background -->
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  <!-- Decorative circles -->
+  <circle cx="1050" cy="120" r="200" fill="#E8634A" opacity="0.08"/>
+  <circle cx="150" cy="520" r="150" fill="#D4AF37" opacity="0.06"/>
+  <!-- Top accent line -->
+  <rect x="80" y="80" width="120" height="4" fill="url(#accent)" rx="2"/>
+  <!-- Main Hanzi -->
+  <text x="80" y="280" font-family="serif" font-size="180" fill="#E8634A" opacity="0.15">学</text>
+  <!-- Logo text -->
+  <text x="80" y="200" font-family="Georgia,serif" font-size="72" font-weight="bold" fill="white">MandoMood</text>
+  <!-- Tagline -->
+  <text x="80" y="260" font-family="Arial,sans-serif" font-size="32" fill="#F5E6C8" opacity="0.9">Học tiếng Trung qua cảm xúc &amp; câu chuyện</text>
+  <!-- Sub -->
+  <text x="80" y="320" font-family="Arial,sans-serif" font-size="24" fill="#888" >AI cá nhân hóa • HSK 1-6 • Miễn phí</text>
+  <!-- Features pills -->
+  <rect x="80" y="380" width="160" height="44" rx="22" fill="#E8634A" opacity="0.2"/>
+  <text x="160" y="407" font-family="Arial,sans-serif" font-size="18" fill="#E8634A" text-anchor="middle">🔥 Daily Challenge</text>
+  <rect x="260" y="380" width="160" height="44" rx="22" fill="#D4AF37" opacity="0.2"/>
+  <text x="340" y="407" font-family="Arial,sans-serif" font-size="18" fill="#D4AF37" text-anchor="middle">📚 HSK 1-6</text>
+  <rect x="440" y="380" width="140" height="44" rx="22" fill="#8FAF8F" opacity="0.2"/>
+  <text x="510" y="407" font-family="Arial,sans-serif" font-size="18" fill="#8FAF8F" text-anchor="middle">🤖 AI Tutor</text>
+  <!-- Bottom URL -->
+  <text x="80" y="560" font-family="Arial,sans-serif" font-size="22" fill="#555">mandomood.vercel.app</text>
+  <!-- Right side decoration -->
+  <text x="850" y="420" font-family="serif" font-size="260" fill="white" opacity="0.04">中</text>
+</svg>
