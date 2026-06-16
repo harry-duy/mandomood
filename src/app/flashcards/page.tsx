@@ -16,6 +16,7 @@ import {
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { invalidateDueCount } from "@/hooks/useDueCount";
+import { useProgress } from "@/hooks/useProgress";
 
 interface VocabCard {
   _id: string;
@@ -40,6 +41,7 @@ const QUALITY_LABELS = [
 export default function FlashcardsPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
+  const { awardXP } = useProgress();
 
   const [cards, setCards] = useState<VocabCard[]>([]);
   const [currentIdx, setCurrentIdx] = useState(0);
@@ -84,6 +86,9 @@ export default function FlashcardsPage() {
       invalidateDueCount(); // thẻ vừa ôn không còn đến hạn → badge cập nhật
     } catch { /* non-critical */ }
 
+    // Cộng XP: 3 XP mỗi thẻ nhớ được, bonus khi hoàn thành phiên
+    if (quality >= 3) awardXP(3, "flashcard_review");
+
     setStats(prev => ({
       reviewed: prev.reviewed + 1,
       correct: prev.correct + (quality >= 3 ? 1 : 0),
@@ -94,6 +99,8 @@ export default function FlashcardsPage() {
     setGrading(false);
 
     if (currentIdx + 1 >= cards.length) {
+      // Bonus 5 XP khi hoàn thành phiên
+      awardXP(5, "flashcard_session_done");
       setSessionDone(true);
     } else {
       setCurrentIdx(i => i + 1);

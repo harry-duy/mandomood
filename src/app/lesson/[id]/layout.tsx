@@ -1,7 +1,5 @@
 import type { Metadata } from "next";
 
-// Tiêu đề bài học demo (đồng bộ với DEMO_LESSONS trong page.tsx).
-// Khi chuyển sang dữ liệu DB, thay bằng truy vấn theo id.
 const LESSON_TITLES: Record<string, string> = {
   l1: "Cuộc gọi lúc nửa đêm",
   l2: "Buổi sáng quán cà phê",
@@ -22,14 +20,26 @@ export async function generateMetadata(
 ): Promise<Metadata> {
   const { id } = await params;
   const lessonTitle = LESSON_TITLES[id];
-  const title = lessonTitle ?? "Bài học";
+  const title = lessonTitle
+    ? `${lessonTitle} | MandoMood`
+    : "Bài học | MandoMood";
   const description = lessonTitle
     ? `Học tiếng Trung qua câu chuyện "${lessonTitle}" — từ vựng, ngữ pháp và cảm xúc trong từng câu.`
     : "Học tiếng Trung qua câu chuyện cảm xúc — từ vựng, ngữ pháp và văn hóa trong từng bài.";
   return {
     title,
     description,
-    openGraph: { title: `${title} | MandoMood`, description },
+    openGraph: {
+      title,
+      description,
+      images: [{ url: "/og-image.png", width: 1200, height: 630, alt: "MandoMood — Bài học" }],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+      images: ["/og-image.png"],
+    },
     alternates: { canonical: `/lesson/${id}` },
   };
 }

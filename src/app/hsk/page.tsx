@@ -14,6 +14,40 @@ import MatchGame from "@/components/ui/MatchGame";
 import { useProgress } from "@/hooks/useProgress";
 
 
+/** Ngữ pháp trọng tâm cho từng cấp HSK */
+const GRAMMAR_TIPS: Record<number, { pattern: string; example: string; meaning: string }[]> = {
+  1: [
+    { pattern: "S + 是 + N", example: "我是学生。Wǒ shì xuésheng.", meaning: "Câu khẳng định dùng 是 (là)" },
+    { pattern: "S + 不 + V", example: "我不吃。Wǒ bù chī.", meaning: "Phủ định hành động dùng 不" },
+    { pattern: "S + V + 吗？", example: "你好吗？Nǐ hǎo ma?", meaning: "Câu hỏi yes/no thêm 吗 cuối câu" },
+  ],
+  2: [
+    { pattern: "S + 也 + V", example: "我也喜欢。Wǒ yě xǐhuan.", meaning: "也 (yě) = cũng — dùng trước động từ" },
+    { pattern: "S + 都 + V", example: "他们都来了。Tāmen dōu lái le.", meaning: "都 (dōu) = tất cả — đứng trước động từ" },
+    { pattern: "V + 了 = hoàn thành", example: "我吃了。Wǒ chī le.", meaning: "了 sau động từ → hành động đã xảy ra" },
+  ],
+  3: [
+    { pattern: "A + 比 + B + Adj", example: "他比我高。Tā bǐ wǒ gāo.", meaning: "比 (bǐ) so sánh: A cao hơn B" },
+    { pattern: "因为…所以…", example: "因为下雨，所以我没去。", meaning: "因为 (vì)…所以 (nên)… = cặp nhân quả" },
+    { pattern: "S + 把 + O + V", example: "我把书放好了。", meaning: "把 đưa tân ngữ lên trước động từ (xử lý chủ động)" },
+  ],
+  4: [
+    { pattern: "被 + Agent + V", example: "书被我看完了。", meaning: "被 (bèi) câu thụ động: sách được tôi đọc xong" },
+    { pattern: "连…都/也…", example: "连小孩都知道。Lián xiǎohái dōu zhīdao.", meaning: "连…都… = ngay cả… cũng… (nhấn mạnh)" },
+    { pattern: "只有…才…", example: "只有努力，才能成功。", meaning: "只有 (chỉ khi)…才 (mới)… = điều kiện duy nhất" },
+  ],
+  5: [
+    { pattern: "既然…就…", example: "既然来了，就好好学吧。", meaning: "既然 (đã vậy)…就 (thì)… = chấp nhận thực tế → kết luận" },
+    { pattern: "尽管…还是…", example: "尽管很难，他还是坚持了。", meaning: "尽管 (dù rằng)…还是 (vẫn)… = nhượng bộ" },
+    { pattern: "宁可…也不…", example: "宁可饿死，也不求人。", meaning: "宁可 (thà)…也不 (còn hơn)… = lựa chọn mạnh" },
+  ],
+  6: [
+    { pattern: "固然…但是…", example: "固然很重要，但是也有缺点。", meaning: "固然 (tuy vậy)…但是 (nhưng)… = thừa nhận nhưng phản bác" },
+    { pattern: "何况", example: "大人都做不到，何况小孩呢？", meaning: "何况 = huống chi — tăng mức độ lập luận" },
+    { pattern: "以致 + kết quả xấu", example: "他太粗心，以致出了大错。", meaning: "以致 = dẫn đến (kết quả tiêu cực)" },
+  ],
+};
+
 const LEVEL_INFO = [
   { level: 1, label: "HSK 1", color: "from-green-500 to-emerald-400", words: 150, desc: "Cơ bản nhất", free: true },
   { level: 2, label: "HSK 2", color: "from-teal-500 to-cyan-400", words: 300, desc: "Giao tiếp đơn giản", free: true },
@@ -40,6 +74,7 @@ export default function HSKPage() {
 
   const [query, setQuery] = useState("");
   const [savedTick, setSavedTick] = useState(0); // tăng sau mỗi lần lưu để cập nhật icon
+  const [showGrammar, setShowGrammar] = useState(true); // mở sẵn để người học thấy ngay ngữ pháp
 
   const allWords = useMemo(() => HSK_DATA[activeLevel] ?? [], [activeLevel]);
   const info = LEVEL_INFO.find(l => l.level === activeLevel)!;
@@ -101,7 +136,7 @@ export default function HSKPage() {
           {LEVEL_INFO.map(({ level, label, color, words: wCount, desc, free }) => (
             <button
               key={level}
-              onClick={() => { setActiveLevel(level); setExpandedWord(null); setShowQuiz(false); }}
+              onClick={() => { setActiveLevel(level); setExpandedWord(null); setShowQuiz(false); setShowGrammar(true); }}
               className={cn(
                 "relative rounded-2xl p-3 text-left transition-all border",
                 activeLevel === level
@@ -144,6 +179,72 @@ export default function HSKPage() {
             </div>
           </div>
         </div>
+
+        {/* Ngữ pháp trọng tâm — accordion */}
+        {GRAMMAR_TIPS[activeLevel] && (
+          <div className="rounded-2xl border border-[rgba(255,255,255,0.07)] overflow-hidden">
+            <button
+              onClick={() => setShowGrammar(v => !v)}
+              className="w-full flex items-center justify-between px-4 py-3 bg-[var(--bg-card)] hover:bg-surface2 transition-colors"
+            >
+              <div className="flex items-center gap-2">
+                <Star size={13} className="text-mm-gold" />
+                <span className="text-sm font-semibold">Ngữ pháp trọng tâm {info.label}</span>
+                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-mm-gold/15 text-mm-gold font-bold">
+                  {GRAMMAR_TIPS[activeLevel].length} mẫu
+                </span>
+              </div>
+              <ChevronDown
+                size={16}
+                className={cn("text-[var(--text-muted)] transition-transform duration-300", showGrammar && "rotate-180")}
+              />
+            </button>
+            <AnimatePresence initial={false}>
+              {showGrammar && (
+                <motion.div
+                  key="grammar"
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: "auto", opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={{ duration: 0.25, ease: "easeInOut" }}
+                  className="overflow-hidden"
+                >
+                  <div className="px-4 pb-4 pt-2 space-y-3 bg-[var(--bg-card)]/60">
+                    {GRAMMAR_TIPS[activeLevel].map((tip, i) => (
+                      <div key={i} className="rounded-xl bg-surface border border-[rgba(255,255,255,0.05)] p-3">
+                        <div className="flex items-start justify-between gap-2 mb-1.5">
+                          <code className="text-mm-gold text-xs font-mono font-bold">{tip.pattern}</code>
+                          <span className="shrink-0 w-5 h-5 rounded-full bg-mm-gold/15 text-mm-gold text-[9px] font-bold flex items-center justify-center">{i + 1}</span>
+                        </div>
+                        <p className="text-sm font-noto mb-1">{tip.example}</p>
+                        <p className="text-[11px] text-[var(--text-muted)] leading-relaxed">{tip.meaning}</p>
+                      </div>
+                    ))}
+                    <a
+                      href="/grammar"
+                      className="inline-flex items-center gap-1 text-[11px] text-mm-gold hover:underline"
+                    >
+                      Xem thêm ngữ pháp nâng cao →
+                    </a>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        )}
+
+        {/* Tải file luyện viết 田字格 theo cấp (in/lưu PDF — kiểu nhaikanji) */}
+        <a
+          href={`/practice-sheet?level=${activeLevel}`}
+          className="flex items-center gap-2.5 rounded-2xl border border-mm-red/25 bg-mm-red/10 px-4 py-3 hover:bg-mm-red/15 transition-colors"
+        >
+          <span className="text-lg">🖨️</span>
+          <div className="flex-1">
+            <p className="text-sm font-semibold text-[var(--text)]">Tải file luyện viết {info.label}</p>
+            <p className="text-[11px] text-[var(--text-muted)]">In ô 田字格 hoặc lưu PDF để viết tay offline</p>
+          </div>
+          <span className="text-mm-red text-lg leading-none">›</span>
+        </a>
 
         {/* Tim kiem: hanzi / pinyin / nghia / am Han Viet (kieu nhaikanji) */}
         <div className="relative">

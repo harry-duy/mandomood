@@ -5,12 +5,13 @@
  */
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Network, Volume2, ArrowRight, X } from "lucide-react";
 import { playTTS } from "@/hooks/useTTS";
 import { cn } from "@/lib/utils";
 import { useRouter } from "next/navigation";
+import { useProgress } from "@/hooks/useProgress";
 
 interface CharNode {
   hanzi: string;
@@ -172,6 +173,8 @@ interface SelectedChar {
 }
 
 export default function SodoPage() {
+  const { awardXP } = useProgress();
+  const awardedSet = useRef(new Set<string>());
   const [selectedFamily, setSelectedFamily] = useState<RadicalFamily | null>(null);
   const [selectedChar, setSelectedChar] = useState<SelectedChar | null>(null);
   const router = useRouter();
@@ -268,7 +271,13 @@ export default function SodoPage() {
                           {family.children.map((char) => (
                             <button
                               key={char.hanzi}
-                              onClick={() => setSelectedChar({ char, family })}
+                              onClick={() => {
+                                setSelectedChar({ char, family });
+                                if (!awardedSet.current.has(char.hanzi)) {
+                                  awardedSet.current.add(char.hanzi);
+                                  awardXP(2, "sodo_explore");
+                                }
+                              }}
                               className={cn(
                                 "flex flex-col items-center gap-1 p-3 rounded-2xl border transition-all active:scale-95",
                                 "bg-surface2 border-[rgba(255,255,255,0.06)] hover:border-mm-red/30"

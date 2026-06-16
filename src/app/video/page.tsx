@@ -11,11 +11,12 @@
  */
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Play, X, ExternalLink, Youtube, Search, Sparkles } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, readJSON, writeJSON } from "@/lib/utils";
 import { parseYouTubeId } from "@/lib/youtube";
+import { useProgress } from "@/hooks/useProgress";
 
 interface VideoItem {
   id: string;          // YouTube video id
@@ -179,11 +180,22 @@ const CAT_COLOR: Record<string, string> = {
 // parseYouTubeId đã chuyển sang src/lib/youtube.ts (để test được).
 
 export default function VideoPage() {
+  const { awardXP } = useProgress();
   const [catFilter, setCatFilter] = useState("Tất cả");
   const [levelFilter, setLevelFilter] = useState("all-filter");
   const [active, setActive] = useState<{ id: string; title: string } | null>(null);
   const [pasteUrl, setPasteUrl] = useState("");
   const [pasteError, setPasteError] = useState("");
+
+  /** Mở video và award 10 XP lần đầu mỗi video ID (unique). */
+  const openVideo = useCallback((id: string, title: string) => {
+    setActive({ id, title });
+    const watched = readJSON<string[]>("mm_video_watched", []);
+    if (!watched.includes(id)) {
+      writeJSON("mm_video_watched", [...watched, id]);
+      awardXP(10, "complete_lesson"); // cap 20 XP phía server
+    }
+  }, [awardXP]);
 
   const filtered = useMemo(() => {
     return VIDEOS.filter((v) => {
@@ -202,7 +214,7 @@ export default function VideoPage() {
       return;
     }
     setPasteError("");
-    setActive({ id, title: "Video của bạn" });
+    openVideo(id, "Video của bạn");
   }
 
   return (
@@ -315,7 +327,7 @@ export default function VideoPage() {
             {filtered.map((v) => (
               <motion.button
                 key={v.id}
-                onClick={() => setActive({ id: v.id, title: v.title })}
+                onClick={() => openVideo(v.id, v.title)}
                 whileHover={{ y: -3 }}
                 className="text-left bg-[#161616] border border-[rgba(255,255,255,0.08)] rounded-2xl overflow-hidden hover:border-[#E8634A]/40 transition-colors group"
               >

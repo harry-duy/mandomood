@@ -330,7 +330,7 @@ export const BLOG_POSTS: BlogPost[] = [
     ],
   },
   {
-    slug: "hoc-tieng-trung-qua-c-drama",
+    slug: "hoc-tieng-trung-qua-c-drama-passive-immersion",
     title: "Học tiếng Trung qua C-drama: phương pháp passive learning cực mạnh",
     description:
       "C-drama không chỉ để giải trí — đây là tài nguyên học tiếng Trung miễn phí và hiệu quả nhất. Cách biến mỗi tập phim thành buổi học 45 phút mà không cần sách vở.",

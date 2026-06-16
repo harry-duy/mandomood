@@ -12,10 +12,12 @@ const config: Config = {
       colors: {
         // MandoMood Brand Colors — tu logo chinh thuc
         // Logo palette: kem #F5E6C8 · nau #5C3D1E · do cam #E8634A · vang #E8A838
-        bg: "#0D0D0D",
-        surface: "#1A1A1A",
-        surface2: "#242424",
-        border: "rgba(255,255,255,0.08)",
+        // Map sang CSS var để tự thích ứng dark/light theme (xem globals.css)
+        // Trước đây fixed hex → bg-surface/bg-surface2 kẹt nền tối khi bật light mode
+        bg: "var(--bg)",
+        surface: "var(--surface)",
+        surface2: "var(--surface2)",
+        border: "var(--border)",
         // Primary brand (tu logo)
         "mm-red": "#E8634A",
         "mm-brown": "#5C3D1E",

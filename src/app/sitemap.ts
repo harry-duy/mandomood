@@ -46,6 +46,8 @@ const PUBLIC_ROUTES: { path: string; priority: number; changeFrequency: Metadata
   { path: "/blog", priority: 0.8, changeFrequency: "weekly" },
   { path: "/daily-plan", priority: 0.7, changeFrequency: "daily" },
   { path: "/karaoke", priority: 0.7, changeFrequency: "weekly" },
+  { path: "/practice-sheet", priority: 0.6, changeFrequency: "monthly" },
+  { path: "/mandomood-vs-duolingo", priority: 0.7, changeFrequency: "monthly" },
 ];
 
 export default function sitemap(): MetadataRoute.Sitemap {

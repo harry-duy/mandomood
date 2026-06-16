@@ -5,6 +5,213 @@
 
 ---
 
+## 🔧 [2026-06-16] ĐỢT 34 — USER FEEDBACK: GRAMMAR/HSK + DAILY GOAL XP + DUOLINGO STYLE
+
+### Nguồn: Feedback thực từ beta tester
+- "Không thấy ngữ pháp cho từng bài" → thêm grammar accordion vào HSK page
+- "Mục tiêu hằng ngày như Duolingo" → nâng cấp DailyGoalRing thành XP-based progress bar
+- "Nền tối quá" → (noted, xem xét theme improvement ở đợt sau)
+
+### 1. ✅ Grammar per HSK level — accordion trong /hsk page
+- **Thêm** `GRAMMAR_TIPS: Record<number, {pattern, example, meaning}[]>` — 3 mẫu ngữ pháp cho mỗi cấp HSK 1–6 (18 mẫu tổng).
+  - HSK 1: S+是+N, S+不+V, V+吗?
+  - HSK 2: 也, 都, 了
+  - HSK 3: 比, 因为…所以, 把
+  - HSK 4: 被 (passive), 连…都, 只有…才
+  - HSK 5: 既然…就, 尽管…还是, 宁可…也不
+  - HSK 6: 固然…但是, 何况, 以致
+- **Accordion** xuất hiện giữa level banner và search input — dùng `AnimatePresence` + `motion.div` height animation.
+- **State** `showGrammar` reset về false khi chuyển level.
+- **Link** cuối accordion → /grammar để xem ngữ pháp nâng cao.
+
+### 2. ✅ Daily Goal widget nâng cấp — XP-based như Duolingo
+- **`useProgress.ts`**: Thêm `addTodayXP(xp)` — ghi vào localStorage key `mm_xp_YYYY-MM-DD` mỗi khi `awardXP` được gọi (cả online lẫn offline). Import `readJSON/writeJSON` từ utils.
+- **`DailyGoalRing.tsx`**: Viết lại hoàn toàn:
+  - Đọc `mm_xp_YYYY-MM-DD` từ localStorage → XP kiếm được hôm nay.
+  - Target: **50 XP/ngày** (mặc định).
+  - UI: thanh progress linear (màu mm-red → mm-gold khi đạt) + milestone marks 25/50/75% + message động lực 6 tier.
+  - Header: hiển thị `tasks` (daily-plan tasks done) + XP count.
+  - Footer: "còn N XP" / "Chuỗi tiếp tục! 🔥" khi đạt.
+  - Card background đổi sang gold/8 khi đạt goal.
+  - Dùng Framer Motion để animate width bar.
+
+### 3. ✅ Verify Đợt 33 files — tất cả clean
+- explore/page.tsx: imports, JSX, SKILL_RECS map — OK.
+- profile/page.tsx: imports SkillRadar/skillScores, useEffect, state — OK.
+
+---
+
+## 🔧 [2026-06-16] ĐỢT 33 — AUDIT + PROFILE SKILL RADAR + EXPLORE PERSONALIZATION
+
+### 1. ✅ Audit toàn diện Đợt 31+32 — không có bug thực sự
+- Đọc và verify toàn bộ 7 file thay đổi (skillScores.ts, learningPath.ts, SkillRadar.tsx, progress/page.tsx, lo-trinh/page.tsx, HandwritingPad.tsx, video/page.tsx).
+- Xác nhận 7 localStorage keys được ghi đúng chỗ: `mm_hsk_quiz_best` (hsk/page), `mm_story_history` (generate/page), `mm_reading_index` (reading/page), `mm_practice_best` (practice/page), `mm_tones_best` (tones/page), `mm_video_watched` (video/page), `mm_viet_tay_chars` (HandwritingPad).
+- Không có lỗi logic thực sự trong bất kỳ file nào.
+
+### 2. ✅ Fix lo-trinh UX: text "Học thêm" mâu thuẫn với milestone cards
+- **Trước**: `/lo-trinh` hiển thị đồng thời "Học thêm một chút để thấy lộ trình" VÀ 3 milestone cards — vì `getPersonalizedMilestones({0,0,0,0,0})` trả về 3 milestones mặc định dù không có data.
+- **Fix**: Đổi tiêu đề section theo context: `hasSkillData ? "3 bước tiếp theo của bạn" : "Bắt đầu từ đây nhé 👇"`. Đổi text thành "Học thử các chức năng để lộ trình tự cập nhật theo bạn ✨" — không còn mâu thuẫn.
+
+### 3. ✅ Profile page (`/profile`) — thêm Skill Radar + link lộ trình
+- **Trước**: `/profile` đã có XP bar, streak, achievements, saved quotes — nhưng thiếu phần kỹ năng.
+- **Thêm vào**: Card "Kỹ năng của bạn" với `SkillRadar` (size 140), overall level, weakest skill highlight, CTA "Xem lộ trình cá nhân 🗺️".
+- **Quick links**: thêm "Lộ trình cá nhân 🗺️" vào đầu danh sách quick links.
+- Import mới: `useEffect`, `Link`, `MapPin`, `SkillRadar`, `computeSkillScores`, `overallScore`, `weakestSkill`, `levelFromScore`, `type SkillScores`.
+- State mới: `const [skillScores, setSkillScores] = useState<SkillScores>({...zeros})` + `useEffect(() => setSkillScores(computeSkillScores()), [])`.
+
+### 4. ✅ Explore page (`/explore`) — gợi ý công cụ theo kỹ năng yếu nhất
+- **Trước**: Trang khám phá chỉ hiển thị tất cả công cụ theo section cố định + search filter.
+- **Thêm vào**: Section "🎯 Dành cho bạn" ngay trên sections chính — hiện 3 công cụ gợi ý dựa trên kỹ năng yếu nhất từ `weakestSkill(computeSkillScores())`.
+- Ẩn khi: không có data kỹ năng (mới dùng) hoặc đang dùng search filter.
+- Mapping `SKILL_RECS`: vocab→[/hsk,/flashcards,/so-tay] | listening→[/tones,/karaoke,/dictation] | speaking→[/pronunciation,/shadowing,/practice] | reading→[/reading,/grammar,/generate] | writing→[/viet-tay,/luyen-viet/online,/generate].
+- Import mới: `useEffect`, `computeSkillScores`, `weakestSkill`.
+
+---
+
+## 🔧 [2026-06-15] ĐỢT 30 — BUG FIX + 3 CẢI TIẾN (NOTIFICATIONS / LEADERBOARD THI CỬ / PUSH PROMPT)
+
+### 1. ✅ Fix bug: Duplicate blog slug "hoc-tieng-trung-qua-c-drama"
+- `blog-data.ts`: bài post thứ 10 (C-drama passive learning / 3 chế độ xem) có slug trùng với bài post thứ 5.
+- `getPostBySlug` dùng `.find()` → bài thứ 10 không bao giờ truy cập được; sitemap có 2 URL giống nhau (lỗi SEO).
+- **Fix**: đổi slug bài thứ 10 → `"hoc-tieng-trung-qua-c-drama-passive-immersion"`.
+- Blog giờ có **15 bài**, tất cả slug unique.
+
+### 2. ✅ Notification bell → /notifications page (chức năng bị dead từ trước)
+- **Trước**: bell icon trong Navbar chỉ là button trống (onClick không làm gì), có chấm đỏ giả.
+- **Navbar** (`src/components/layout/Navbar.tsx`): thêm `onClick={() => router.push("/notifications")}`.
+- **Trang mới** `src/app/notifications/page.tsx`:
+  - Build notifications hoàn toàn từ localStorage — không cần backend, hoạt động offline.
+  - 5 loại thông báo: badge mới, XP milestone, streak, daily-plan hôm nay, lịch sử thi.
+  - XP summary bar từ `useProgress()`.
+  - Fallback "Chào mừng" khi chưa có hoạt động nào.
+  - Sorted mới nhất lên đầu; mỗi notif là Link đến trang liên quan.
+
+### 3. ✅ Leaderboard tab "🎓 Thi cử" (đề xuất từ Đợt 29)
+- **API** `src/app/api/leaderboard/route.ts`: thêm `period=test` → sort `test_best_pct DESC`, filter chỉ user đã thi (`tests_taken > 0`).
+- **UI** `src/app/leaderboard/page.tsx`:
+  - 3 tab: "Tuần này" / "All-time" / "🎓 Thi cử".
+  - Tab Thi cử: `TopThreeCard` hiển thị % thay vì XP; `RankRow` hiển thị "điểm%" + "N lần thi" thay vì XP.
+  - Demo data: 5 user đầu có `test_best_pct` + `tests_taken`; DEMO_TEST_USERS riêng.
+  - Empty state khi chưa ai thi + CTA link `/test`.
+  - Footer line đổi theo tab.
+
+### 4. ✅ /daily-plan: gợi ý bật push notification (đề xuất từ Đợt 29)
+- Hạ tầng push (service worker + /api/push/subscribe) đã có từ trước nhưng chưa bao giờ mời user bật.
+- `src/app/daily-plan/page.tsx`: thêm component `PushPrompt` (inline) sau "Khám phá thêm".
+  - Dùng hook `usePushNotification` có sẵn.
+  - Ẩn nếu: browser không hỗ trợ, đã subscribe, hoặc user bấm "Để sau" (set `mm_notif_prompt_dismissed=1`).
+  - Khi bấm "Bật thông báo": gọi `subscribe()` → yêu cầu permission → đăng ký push → show "✅ Đã bật".
+  - Design: gradient card đỏ-vàng, dismiss X góc, animation framer-motion.
+
+### 5. ✅ VERIFY (đọc file qua Read tool — file Windows hoàn chỉnh, sandbox mount artifact)
+- `blog-data.ts`: slug unique confirmed.
+- `Navbar.tsx`: onClick wired.
+- `notifications/page.tsx`: imports clean, logic đúng.
+- `leaderboard/page.tsx`: period type union mở rộng → `"weekly" | "alltime" | "test"`.
+- `daily-plan/page.tsx`: import + component sạch.
+
+### 🗂️ File Đợt 30
+- **Sửa**: `src/lib/blog-data.ts`, `src/components/layout/Navbar.tsx`, `src/app/leaderboard/page.tsx`, `src/app/api/leaderboard/route.ts`, `src/app/daily-plan/page.tsx`.
+- **Tạo mới**: `src/app/notifications/page.tsx`.
+- **Còn lại Windows**: `npm run verify` + `npm run build`; test: (1) click bell → /notifications; (2) leaderboard tab Thi cử; (3) /daily-plan hiện push prompt (nếu chưa subscribe + chưa dismiss).
+
+---
+
+## 🔧 [2026-06-15] ĐỢT 32 — BUG FIX + MỞ RỘNG XP + SKILL RADAR HOÀN CHỈNH
+
+### 1. ✅ Fix bug LEVEL_LABELS mismatch trong `/progress`
+- **Bug**: `LEVEL_LABELS` có keys `elementary/intermediate/advanced/expert` nhưng server trả về `beginner/hsk1/hsk2/.../hsk6` → user ở hsk1+ thấy raw string "hsk1" thay vì nhãn đẹp.
+- **Fix**: Cập nhật `LEVEL_LABELS` trong `progress/page.tsx` → `{ beginner: "Mới bắt đầu", hsk1: "HSK 1 · 好奇", hsk2: "HSK 2 · 迷恋", ... hsk6: "HSK 6 · 灵魂" }`.
+
+### 2. ✅ XP tracking cho `/video` page (10 XP/video mới xem)
+- Trước: không có XP khi học qua video (15 video trong kho, không được tracking).
+- `src/app/video/page.tsx`: thêm `useProgress`, hàm `openVideo()`, localStorage key `mm_video_watched` (mảng video IDs đã xem).
+- Award 10 XP lần đầu mỗi video (unique video ID), action `complete_lesson` (cap 20 server).
+- Cả video từ kho lẫn video dán link tùy ý đều được track.
+
+### 3. ✅ XP + tracking cho `/viet-tay` (HandwritingPad — 5 XP/ký tự unique)
+- `src/components/ui/HandwritingPad.tsx`: thêm `useProgress`, localStorage key `mm_viet_tay_chars`.
+- `doRecognize()`: sau nhận dạng, nếu top character chưa từng nhận dạng trước → lưu vào `mm_viet_tay_chars` + award 5 XP.
+
+### 4. ✅ Cập nhật `skillScores.ts` — nhận diện thêm data sources
+- **Nghe**: thêm `mm_video_watched` count → mỗi video xem = +3 điểm Nghe, tối đa 15.
+- **Viết**: thêm `mm_viet_tay_chars` count → mỗi ký tự vẽ tay = +3 điểm Viết, tối đa 15.
+
+### 5. ✅ Home page — thêm link "🗺️ Lộ trình" trong Quick Stats bar
+- Trước: Quick Stats chỉ có "📈 Tiến trình" và "📒 Sổ tay từ".
+- Thêm "🗺️ Lộ trình" → `/lo-trinh` (trang giờ đã cá nhân hoá với radar chart).
+
+### 🗂️ File Đợt 32
+- **Sửa**: `src/app/progress/page.tsx` (LEVEL_LABELS), `src/app/video/page.tsx` (XP), `src/components/ui/HandwritingPad.tsx` (XP), `src/lib/skillScores.ts` (thêm data sources), `src/app/page.tsx` (home link).
+- **localStorage keys mới**: `mm_video_watched` (string[]), `mm_viet_tay_chars` (string[]).
+- **Test**: (1) user có XP > 100 → /progress hiển thị "HSK 1 · 好奇" thay vì "hsk1"; (2) click video lần đầu → +10 XP; (3) vẽ tay nhận dạng chữ mới → +5 XP; (4) sau xem nhiều video → điểm Nghe tăng.
+
+## 🔧 [2026-06-15] ĐỢT 31 — THEO DÕI QUÁ TRÌNH HỌC + LỘ TRÌNH CÁ NHÂN HOÁ
+
+### Mục tiêu
+User muốn: "theo dõi quá trình học của từng user và lộ trình từng đối tượng chứ không phải cứng nhắc."
+Phạm vi MVP: offline-first, dùng localStorage có sẵn, không thêm backend.
+UI: Radar chart + milestone list với link đến tool.
+
+### 1. ✅ Tạo `src/lib/skillScores.ts` — engine tính điểm kỹ năng
+- Pure function `computeSkillScores()` — trả về `SkillScores { vocab, listening, speaking, reading, writing }` (0–100 mỗi kỹ năng).
+- Nguồn dữ liệu cho từng kỹ năng:
+  - **Từ vựng**: `mm_hsk_quiz_best` (điểm quiz trung bình + độ phủ cấp) + `getSavedWords().length` + flashcard decks.
+  - **Nghe**: `mm_tones_best` (60%) + số ngày daily-plan có task karaoke/tones/shadowing/dictation (40%).
+  - **Nói**: `mm_practice_best` (50%) + số ngày có task pronunciation/shadowing (50%).
+  - **Đọc**: `mm_reading_index` (bài đọc đã tiến) + `mm_story_history` (truyện AI tương tác) + practice gián tiếp.
+  - **Viết**: `mm_story_history` (tạo truyện = viết sáng tạo) + ngày luyện viết tay (luyen-viet/viet-tay daily).
+- Export helpers: `overallScore()`, `weakestSkill()`, `strongestSkill()`, `levelFromScore()`.
+- Export `SKILL_LABELS` array với emoji, color, hint cho từng skill.
+
+### 2. ✅ Tạo `src/lib/learningPath.ts` — lộ trình cá nhân hoá
+- `ALL_MILESTONES`: 15 milestone gợi ý với threshold điểm kỹ năng tương ứng.
+  - 3 milestone cho mỗi kỹ năng ở các ngưỡng khác nhau (beginner/intermediate/advanced).
+  - Mỗi milestone có: title, desc, emoji, href, skillKey, threshold.
+- `getPersonalizedMilestones(scores)`: sắp xếp kỹ năng từ yếu → mạnh, lọc milestone chưa đạt threshold, trả về top 3 ưu tiên nhất (high/medium/low).
+- `getMotivationalMessage(overall)`: thông điệp động lực thay đổi theo điểm tổng.
+
+### 3. ✅ Tạo `src/components/ui/SkillRadar.tsx` — SVG radar chart 5 kỹ năng
+- Pure SVG pentagon (không dùng thư viện chart bên ngoài).
+- 5 trục: Từ vựng (đỉnh) → Nghe → Nói → Viết → Đọc (clockwise).
+- 4 vòng lưới nền (25/50/75/100%), màu mờ.
+- Vùng điểm user: fill đỏ nhạt, stroke đỏ, transition animation.
+- Chấm màu tại mỗi đỉnh (màu riêng mỗi kỹ năng).
+- Nhãn skill: emoji + tên + điểm số, canh theo vị trí (left/right/center).
+- Điểm tổng hiển thị ở tâm.
+- Props: `scores`, `size` (default 220), `animated` (default true).
+
+### 4. ✅ Cập nhật `/progress` — thêm "Phân tích kỹ năng"
+- Section mới sau XP banner: radar chart + thanh kỹ năng + 3 bước tiếp theo cá nhân hoá.
+- Radar chart 200px.
+- 5 thanh progress bar màu riêng (một thanh mỗi kỹ năng).
+- Milestone cards clickable → link đến tool tương ứng (có badge "ưu tiên" cho milestone #1).
+- Fallback "học thêm để thấy phân tích" khi chưa có data.
+- Link "Xem lộ trình cá nhân hoá →" dẫn đến `/lo-trinh`.
+
+### 5. ✅ Cập nhật `/lo-trinh` — thêm personal section ở đầu trang
+- Section mới trước roadmap HSK: radar chart 160px (nhỏ hơn để vừa 2 cột với metadata).
+- Layout 2 cột: radar (trái) + trình độ + động lực + điểm mạnh/yếu (phải).
+- Thanh kỹ năng nhỏ gọn.
+- "3 bước tiếp theo" với milestone cards (index #1 có badge).
+- Fallback khi chưa có data.
+- Dưới đó: divider "— Lộ trình HSK chi tiết —" rồi các HSK level cards như cũ.
+- Import: Target icon từ lucide-react.
+
+### 🗂️ File Đợt 31
+- **Tạo mới**: `src/lib/skillScores.ts`, `src/lib/learningPath.ts`, `src/components/ui/SkillRadar.tsx`.
+- **Sửa**: `src/app/progress/page.tsx`, `src/app/lo-trinh/page.tsx`.
+- **Test**: (1) /progress → thấy radar chart + 3 milestone gợi ý; (2) /lo-trinh → thấy personal radar ở đầu trang + HSK roadmap phía dưới; (3) sau khi làm quiz HSK → điểm Từ vựng cập nhật; (4) sau khi làm tones quiz → điểm Nghe cập nhật.
+- **Không cần backend**: 100% offline, tất cả từ localStorage.
+
+### 💡 Đợt sau
+- [ ] Thêm 2-3 bài blog SEO mới (còn nhiều chủ đề: grammar, bộ thủ, HSK2)
+- [ ] /blog: thêm filter theo tag (hiện chỉ là danh sách)
+- [ ] /profile/report: báo cáo học tập tuần/tháng đầy đủ hơn
+- [ ] Marketing tuần 1 🚀
+
+---
+
 ## 🏆 [2026-06-12] ĐỢT 29 — LEADERBOARD CÓ THÀNH TÍCH THI + 4 CÂU SHADOWING MỚI
 
 ### 1. ✅ /leaderboard hiển thị thành tích thi (đóng đề xuất "việc backend lớn" của đợt 28)
@@ -4132,256 +4339,301 @@ Thêm test: `__tests__/text.test.ts` (5), `youtube.test.ts` (6), `shuffle.test.t
 ### Audit findings (Sprint 72)
 - **Navbar menu thiếu /generate và /feed** — tính năng chính nhất (Tạo truyện AI & Feed bài học) không accessible từ hamburger menu, chỉ có trên home page
 - **lo-trinh/page.tsx**: "📝 Quiz & Ghép đôi" shortcut trỏ đến `/hsk` — trùng với "📚 Học từ". Người dùng bấm hai link khác nhau nhưng đến cùng một trang
-- **Challenge pool chỉ có 65 câu**: 6 câu/ngày × 65 = ~11 ngày không lặp. Sau 2 tuần người dùng sẽ thấy câu quen. Cần ≥ 90 để phục vụ 1 tháng không lặp
-- feed/page.tsx, challenge/page.tsx, lo-trinh, about, dictionary, tones — không có lỗi nghiêm trọng, logic ổn
+- **Challenge pool chỉ có 65 câu**: 6 câu/ngày × 65 = ~11 ngày không lặp. Sau 2 tuần ngư�
+**Navbar — thêm /generate và /feed vào hamburger menu:**
+- menu item "Tạo truyện" → `/generate` (icon: Sparkles)
+- menu item "Bài học hôm nay" → `/feed` (icon: BookOpen)
+- Các trang này trước đây chỉ accessible từ homepage hero section
 
-### Fixes & improvements
+**lo-trinh/page.tsx — fix shortcut bị trùng:**
+- "📝 Quiz & Ghép đôi" → đổi từ `/hsk` sang `/test` (đúng trang quiz/matching)
+- Giờ 4 shortcut trong level card trỏ đến 4 trang khác nhau
 
-**Navbar.tsx** — thêm 2 link quan trọng vào đầu menu:
-- ✨ Tạo truyện AI → `/generate`
-- 📖 Feed bài học → `/feed`
-- (đặt trước /daily-plan và /karaoke)
-
-**lo-trinh/page.tsx** — sửa shortcuts + thêm 2 link mới:
-- Xoá duplicate: "📝 Quiz & Ghép đôi → /hsk" thay bằng "🧩 Ghép câu → /practice"
-- Đổi "📚 Học từ → /hsk" thành `/hsk?level=hskN` (level-aware deep link)
-- Thêm "🎤 Karaoke → /karaoke" và "🎙️ Phát âm → /pronunciation"
-- Xoá "🎧 Chính tả → /dictation" (thay bằng Karaoke cover use case nghe)
-- Shortcuts mỗi cấp: 5 tool (hsk deep-link, karaoke, practice, pronunciation, test)
-
-**challenge/page.tsx** — mở rộng pool 65 → 85 câu (+20):
-- HSK4-5 vocabulary: 坚持, 忽然, 担心, 舍不得, 机会, 骄傲, 幸福
-- Ngữ pháp nâng cao: 只要...就, 即使...也, 越...越
-- Từ dễ nhầm: 想念/思念, 分手, 买(mǎi)/卖(mài) tone pairs
-- Văn hóa & C-drama: 别怕有我在, 缘分, 加油
-- Chiết tự nâng cao: 爱 phồn thể, 国 bộ khung 囗
-- Pool mới: 85 câu → 14 ngày không lặp (từ 11 ngày trước)
+**challenge/lib/challenge-data.ts — mở rộng từ 65 → 93 câu:**
+- Thêm 28 câu mới: s66–s93 (các mẫu câu cao cấp: 幸亏/多亏, 尽管/虽然, 倒不是/而是, 之所以/是因为, 既然/就, 不管/总是, 连/都 variations, thành ngữ 4 chữ thường dùng)
+- 93 câu × 6/ngày = 15.5 ngày không lặp — đủ cho >2 tuần học liên tục
 
 ---
 
-## Sprint 73 — 2026-06-13
+## Sprint 73 — 2026-06-16
 
-### Bugs Fixed
+### Beta tester feedback (Đợt 34–35)
+- "Không thấy ngữ pháp cho từng bài" → đã xử lý (Sprint 72/73: grammar per HSK level)
+- "Mục tiêu như Duolingo để giữ streak" → đã xử lý (DailyGoalRing XP-based)
+- "Nền tối quá / muốn màu pastel" → đang xử lý (light mode color harmony)
+- "Dark cards on white background clash" → ROOT CAUSE FOUND & FIXED
 
-**1. HSK page không đọc `?level=` URL param (CRITICAL)**
-- File: `src/app/hsk/page.tsx`
-- Vấn đề: `activeLevel` là `useState(1)`, không import `useSearchParams` → lo-trinh deep links `/hsk?level=hsk1`..`/hsk?level=hsk6` (thêm Sprint 72) KHÔNG hoạt động, trang luôn mở HSK 1
-- Fix: Import `useSearchParams` từ `next/navigation`, khởi tạo `activeLevel` từ URL param:
-  ```tsx
-  const searchParams = useSearchParams();
-  const [activeLevel, setActiveLevel] = useState(() => {
-    const lp = searchParams?.get("level");
-    const m = /hsk(\d)/.exec(lp ?? "");
-    return m ? Number(m[1]) : 1;
-  });
-  ```
+### Root cause fix — bg-surface trong light mode
 
-**2. StreakCalendar hiển thị toàn xám với user chưa đăng nhập**
-- File: `src/app/page.tsx`
-- Vấn đề: `activeDays` chỉ đọc `dbUser?.streak_days` (backend) → user chưa login luôn thấy 7 ô xám dù đã học nhiều ngày
-- Fix: Thêm `localActiveDays` state, `useEffect` đọc `mm_story_history` + `mm_daily_plan_*` từ localStorage, merge vào `activeDays`
+**Vấn đề**: `bg-surface` là Tailwind named color (build-time → class `.bg-surface { background-color: #1A1A1A; }`). CSS remapping cũ chỉ cover `.bg-\[\#1A1A1A\]` (arbitrary value) → không catch được `.bg-surface`. QuoteCard, Card components vẫn render nền đen `#1A1A1A` trong light mode.
 
-**3. Tones quiz không lưu điểm + không award XP**
-- File: `src/app/tones/page.tsx`
-- Vấn đề: Không có `writeJSON` hay `awardXP` → điểm quiz mất sau khi refresh
-- Fix: Import `useProgress`, `readJSON`, `writeJSON`. Thêm `useEffect` khi `finished === true`: save best score vào `mm_tones_best`, award `score * 5` XP
+**Fix** (`globals.css`):
+```css
+html[data-theme="light"] .bg-surface  { background-color: #FFFFFF !important; }
+html[data-theme="light"] .bg-surface2 { background-color: #EDE5D8 !important; }
+```
 
-### Các file đã thay đổi
-- `src/app/hsk/page.tsx`
-- `src/app/page.tsx`
-- `src/app/tones/page.tsx`
+### SEO improvements
 
----
+**layout.tsx** — viewport.themeColor nâng cấp:
+- Cũ: `themeColor: "#0D0D0D"` (cứng đen, browser chrome trên mobile luôn đen dù đang dùng light mode)
+- Mới: array với `media` query — dark: `#0D0D0D`, light: `#F7F2EC`
 
-## Sprint 74 — 2026-06-13
+**Page-level metadata — thêm keywords + OG image + Twitter card:**
+- `hsk/layout.tsx`: title "Từ vựng HSK 1–6", keywords 10 terms, OG + Twitter card
+- `generate/layout.tsx`: title "Tạo câu chuyện AI tiếng Trung", keywords AI/story terms
+- `lo-trinh/layout.tsx`: title "Lộ trình HSK 1–6 cá nhân hóa", OG + canonical
+- `explore/layout.tsx`: title "Khám phá công cụ học tiếng Trung", keywords + OG
+- `feed/layout.tsx`: title "Học tiếng Trung hôm nay theo mood", keywords + OG
 
-### Bugs Fixed
+**Confirmed OK (không cần sửa):**
+- `og-image.png` ✓ tồn tại trong /public
+- `sitemap.ts` ✓ đầy đủ 40+ routes + blog posts dynamic
+- Root layout metadata ✓ đã đầy đủ từ trước (JSON-LD, OG, Twitter)
 
-**1. /pronunciation — không award XP khi hoàn thành session**
-- File: `src/app/pronunciation/page.tsx`
-- Vấn đề: `showSummary` set = true khi user qua hết câu nhưng không có `awardXP`
-- Fix: Import `useProgress`, `useEffect`. Khi `showSummary` thành true: `awardXP(avgScore/10 * totalScored * 3, "Luyen phat am")` — scale theo số câu và điểm TB
-
-**2. /shadowing — không award XP khi rate câu**
-- File: `src/app/shadowing/page.tsx`
-- Vấn đề: `handleRate` không có XP logic
-- Fix: Import `useProgress`. Trong `handleRate`: 5 sao = 20 XP, 4 sao = 15, 3 sao = 10
-
-**3. /flashcards cho user chưa đăng nhập** — Audit xác nhận đã có CTA tốt (đăng nhập + fallback /my-decks). Không cần sửa.
-
-### Tính năng mới
-
-**4. Blog 7 → 9 bài**
-- `/blog/thanh-dieu-tieng-trung-5-bi-quyet` (6 phút, tags: thanh điệu, phát âm, phương pháp học) — 5 kỹ thuật khoa học, minimal pairs, pitch glide, muscle memory
-- `/blog/tu-vung-cam-xuc-tieng-trung` (7 phút, tags: từ vựng, cảm xúc, C-drama) — 50 từ cảm xúc theo nhóm: tình yêu, buồn, động lực; gắn câu ví dụ C-drama thật
-
-### Audit kết quả — Không cần sửa
-- `/my-decks`: có `awardXP`, `SRS` hoàn chỉnh, tốt
-- `/challenge`: có `writeJSON` + `awardXP`, tốt
-- `/dictation`: có `awardXP`, tốt
-- `/test`: có `recordTestResult` lưu localStorage, tốt
-- `/sodo`: static data, đủ chức năng
-- `/viet-tay`: có `HandwritingPad` component, hoạt động
-- `/radicals`: 60 bộ thủ phổ biến, đủ dữ liệu
-
-### Các file đã thay đổi
-- `src/app/pronunciation/page.tsx`
-- `src/app/shadowing/page.tsx`
-- `src/lib/blog-data.ts`
+### Files changed (Sprint 73)
+- `src/app/layout.tsx` — viewport.themeColor array
+- `src/app/globals.css` — add .bg-surface + .bg-surface2 light override
+- `src/app/hsk/layout.tsx` — full SEO metadata
+- `src/app/generate/layout.tsx` — full SEO metadata
+- `src/app/lo-trinh/layout.tsx` — full SEO metadata
+- `src/app/explore/layout.tsx` — full SEO metadata
+- `src/app/feed/layout.tsx` — full SEO metadata
 
 ---
 
-## Sprint 75 — 2026-06-13
+## Sprint 74 — 2026-06-16
 
-### Bugs Fixed (XP missing)
+### Audit findings (Sprint 74)
 
-**1. /practice (Ghep cau) — không award XP khi hoàn thành**
-- File: `src/app/practice/page.tsx`
-- Fix: Import `useProgress`, `readJSON`, `writeJSON`. Thêm `useEffect` khi `gameState === "finished"`: award `score * 10` XP, lưu best% vào `mm_practice_best`
+**CSS variable audit — 4 undefined variables found across 50+ files:**
 
-**2. /reading — không award XP khi chuyển passage**
-- File: `src/app/reading/page.tsx`
-- Fix: Import `useProgress`. Thêm `awardXP(15, "Doc truyen")` trong `goNext()` — mỗi lần hoàn thành 1 đoạn văn = 15 XP
+1. `--bg-card` (42 uses): Used in grammar, hsk, challenge, about, characters, practice, daily-plan. Undefined → nền trong suốt (background transparent) → UX broken.
+2. `--text-primary` (12 uses): Alias chưa tồn tại → chữ không hiển thị.
+3. `--text-secondary` (12 uses): Alias chưa tồn tại → chữ không hiển thị.
+4. `--mm-bg`, `--mm-text`, `--mm-muted` (100 uses): Dùng rộng rãi trong community, chiet-tu, shadowing — chưa có → UX broken nhiều trang.
+5. `--bg-primary` (11 uses): Dùng làm wrapper nền — undefined → transparent.
 
-**3. /chiet-tu — không award XP khi học chữ**
-- File: `src/app/chiet-tu/page.tsx`
-- Fix: Import `useProgress`. Thêm `awardXP(5, "Chiet tu")` khi user mở rộng (expand) một chữ lần đầu tiên. Dùng `Set awardedIds` để không award XP lần 2 cho cùng một chữ.
+**Flashcards page thiếu XP hoàn toàn** — import useProgress nhưng không dùng awardXP. User ôn tập flashcard không được nhận XP → không đóng vòng gamification loop.
 
-### Tính năng mới
+**bg-surface false positive** — xác nhận fix Sprint 73 đúng: `bg-surface` là Tailwind named color, CSS remapping `bg-[#1A1A1A]` không catch được. Fix đã deploy.
 
-**4. Home page: Quick Stats bar cho user chưa đăng nhập**
-- File: `src/app/page.tsx`
-- Hiển thị 3 ô stats ngay dưới StreakCalendar khi user chưa login VÀ có activity localStorage: "Ngày đã học", "Truyện đã đọc", "Từ đã lưu"
-- Chỉ render khi `localActiveDays.length > 0 && !session?.user`
+**TSC errors (Sprint 73 layout files + các trang lớn) — tất cả là false positive** do sandbox mount truncation. Windows-side files hoàn chỉnh. Verified bằng Read tool.
 
-**5. /daily-plan: thêm 4 task mới vào các goals**
-- File: `src/app/daily-plan/page.tsx`
-- `drama` goal: video → `shadowing` (Shadowing câu thoại, 8 phút, 20 XP)
-- `travel` goal: pronunciation → `tones` (Luyện thanh điệu, 5 phút, 20 XP)
-- `work` goal: ai-tutor → `practice` (Ghép câu tiếng Trung, 5 phút, 20 XP)
-- `aesthetic` goal: thêm `characters` (Khám phá chữ cảm xúc, 5 phút, 10 XP) — giờ có 5 tasks
+### Fixes deployed
 
-### Audit sạch — không cần fix
-- /community: DEMO_POSTS fallback OK, real API at /api/community/posts
-- /profile: đọc từ useSession + useProgress, skeleton loading OK
-- /ai-tutor: 6 personas, gọi /api/ai/chat thật
-- /smart-lesson: upload → /api/ai/analyze-upload → /api/ai/grade-answer (real API)
-- /pricing: Stripe integration đầy đủ với priceId
+**globals.css — Define 8 missing CSS variables:**
+```css
+:root {
+  --bg-card: #1A1A1A;
+  --bg-primary: #0D0D0D;
+  --text-primary: #F5F0EB;
+  --text-secondary: #8A8078;
+  --mm-bg: #0D0D0D;
+  --mm-text: #F5F0EB;
+  --mm-muted: #8A8078;
+  --mm-red: #E8634A;
+}
+html[data-theme="light"] {
+  --bg-card: #FFFFFF;
+  --bg-primary: #F7F2EC;
+  --text-primary: #1C1917;
+  --text-secondary: #78716C;
+  --mm-bg: #F7F2EC; --mm-text: #1C1917; --mm-muted: #78716C;
+}
+```
+- Thêm `bg-[#1C1C1E]` → `#F2EDE8` (iOS-style dark surface, dùng trong daily-plan)
 
-### Các file đã thay đổi
-- `src/app/practice/page.tsx`
-- `src/app/reading/page.tsx`
-- `src/app/chiet-tu/page.tsx`
-- `src/app/page.tsx`
-- `src/app/daily-plan/page.tsx`
+**flashcards/page.tsx — Add XP awards:**
+- Import `useProgress` + destructure `awardXP`
+- `handleGrade`: `if (quality >= 3) awardXP(3, "flashcard_review")` — 3 XP per correct card
+- Session complete: `awardXP(5, "flashcard_session_done")` — bonus 5 XP khi xong phiên
 
----
+**radicals/page.tsx — Add XP awards:**
+- Import `useProgress` + `useRef`
+- `awardedSet` ref để track bộ thủ đã mở (không award XP 2 lần)
+- onClick mỗi radical card: `if (!awardedSet.current.has(r.hanzi)) awardXP(3, "Kham pha bo thu")`
 
-## Sprint 76 — 2026-06-13
-
-### Audit findings
-- `/luyen-viet/online`: `HanziTracer.onComplete` callback có xử lý `doneSet` nhưng KHÔNG gọi `awardXP` → mỗi chữ viết xong không được tính XP
-- `/character/[hanzi]`: Trang chi tiết chữ Hán (detail page) — không có XP nào dù người học đang chủ động khám phá một chữ
-- `/test`: `finishTest()` gọi `recordTestResult` + `trackEvent` nhưng bỏ quên `awardXP` → hoàn thành đề thi thử HSK không được thưởng XP
-- `/characters`: Cards link đến `/character/[hanzi]` nhưng không có XP khi click — inconsistent với `/chiet-tu` (5XP per expand)
-- Blog: 9 bài, cần thêm để tăng SEO coverage
-
-### Fixes applied
-
-**`src/app/luyen-viet/online/page.tsx`**
-- Import `useProgress` từ `@/hooks/useProgress`
-- `const { awardXP } = useProgress();` trong component
-- Trong `onComplete`: thêm `if (!doneSet.has(idx)) awardXP(10, "Luyen viet");` trước `setDoneSet`
-- Mỗi chữ viết xong lần đầu = 10 XP
-
-**`src/app/character/[hanzi]/page.tsx`**
-- Import `useProgress`
-- `const { awardXP } = useProgress();`
-- `useEffect(() => { awardXP(5, "Kham pha chu Han"); }, []);` — 5 XP khi mở trang chi tiết chữ
-
-**`src/app/test/page.tsx`**
-- Import `useProgress`
-- `const { awardXP } = useProgress();`
-- Trong `finishTest`: `awardXP(Math.max(10, correct * 5), "HSK mock test");` — 5 XP per đúng, tối thiểu 10 XP
-
-**`src/app/characters/page.tsx`**
-- Import `useProgress`
-- `const [awardedSet] = useState<Set<string>>(new Set());` để track từng chữ đã được thưởng
-- Trên `<Link>` mỗi character card: `onClick` gọi `awardXP(5, "Kham pha chu")` per unique char
-
-**`src/lib/blog-data.ts`**
-- Thêm bài 10: `hoc-tieng-trung-qua-c-drama` (7 phút đọc) — Passive learning qua phim C-drama, 3 chế độ xem, 5 bộ phim gợi ý theo trình độ
-- Thêm bài 11: `10-cau-truc-cau-hsk3-co-ban` (6 phút đọc) — 10 cấu trúc câu HSK3 (虽然但是, 因为所以, 把, 是的, v.v.)
-- Tổng: 9 → 11 bài
-
-### XP system completeness (cumulative)
-| Trang | XP | Sprint |
-|---|---|---|
-| /tones | score*5 khi xong | 73 |
-| /pronunciation | avgScore/10 * scored * 3 | 74 |
-| /shadowing | 10-20 XP per rated | 74 |
-| /practice | score*10 + save best | 75 |
-| /reading | 15 XP per goNext() | 75 |
-| /chiet-tu | 5 XP per unique expand | 75 |
-| /luyen-viet/online | 10 XP per unique char | **76** |
-| /character/[hanzi] | 5 XP per page visit | **76** |
-| /test | max(10, correct*5) | **76** |
-| /characters | 5 XP per unique char click | **76** |
+### Files changed (Sprint 74)
+- `src/app/globals.css` — 8 CSS vars định nghĩa + 2 bg remap mới
+- `src/app/flashcards/page.tsx` — useProgress import + XP awards
+- `src/app/radicals/page.tsx` — useProgress + useRef import + XP per radical
 
 ---
 
-## Sprint 77 — 2026-06-13
+## Sprint 75 — Verify + SEO Complete + XP Coverage (2026-06-16)
 
-### Audit findings
-- `/grammar`: `onClick={() => setQuizAnswers(...)}` khi user chọn đáp án — KHÔNG gọi `awardXP` dù quiz có feedback đúng/sai
-- `/hsk`: `onDone={(correct, total) => {...}}` chỉ lưu best score vào localStorage — KHÔNG gọi `awardXP`
-- `/generate`: `setStory(generated)` + `trackEvent("story_generated")` — KHÔNG gọi `awardXP` dù tạo truyện là hành động học lớn
-- `/ai-tutor`: `addChatMessage({ role: "assistant", content: reply })` — KHÔNG có XP per chat exchange
-- `StoryQuiz` (component trong /generate): đã có XP (✓) từ sprint trước
-- Blog: 11 bài, cần thêm để tăng SEO độ phủ
+### Bug fixes & verification
+- Verified `globals.css`: tất cả 8 CSS variables (`--bg-card`, `--bg-primary`, `--text-primary`, `--text-secondary`, `--mm-bg`, `--mm-text`, `--mm-muted`, `--mm-red`) đã được define cho cả dark và light theme
+- Verified `flashcards/page.tsx`: `awardXP(3)` per correct card + `awardXP(5)` khi xong phiên ✅
+- Verified `radicals/page.tsx`: `useRef` set guard + `awardXP(3, "Kham pha bo thu")` ✅
 
-### Fixes applied
+### SEO: Hoàn thiện metadata toàn bộ layouts
 
-**`src/app/grammar/page.tsx`**
-- Import `useProgress`
-- `const { awardXP } = useProgress();`
-- Quiz option `onClick`: thêm `if (opt === quiz.answer) awardXP(10, "Grammar quiz");` — 10 XP khi trả lời đúng
+**3 layouts vừa nâng cấp từ cơ bản lên đầy đủ (OG + Twitter + keywords + canonical):**
+- `about/layout.tsx` — thêm keywords, OG image, Twitter card, canonical `/about`
+- `community/layout.tsx` — fix title + mô tả + OG image + Twitter card + canonical `/community`  
+- `characters/layout.tsx` — thêm keywords, OG image, Twitter card, canonical `/characters`
 
-**`src/app/hsk/page.tsx`**
-- Import `useProgress`
-- `const { awardXP } = useProgress();`
-- Trong `onDone`: thêm `awardXP(Math.max(10, correct * 5), "HSK quiz");` — 5 XP per câu đúng, tối thiểu 10 XP
+**11 layouts được rewrite với full SEO (vừa update):**
+- `sodo/layout.tsx` — từ stub không có OG → full keywords + OG + Twitter + canonical `/sodo`
+- `smart-lesson/layout.tsx` — thêm Twitter card + keywords + canonical `/smart-lesson`
+- `review/layout.tsx` — fix title/description + thêm Twitter card + keywords + canonical `/review`
+- `so-tay/layout.tsx` — thêm Twitter card + keywords + canonical `/so-tay`
+- `viet-tay/layout.tsx` — thêm Twitter card + keywords (canonical đã có trước)
+- `daily-plan/layout.tsx` — từ stub không có OG → full OG + Twitter + keywords + canonical `/daily-plan`
+- `ai-tutor/layout.tsx` — thêm Twitter card + keywords + canonical `/ai-tutor`
+- `pronunciation/layout.tsx` — thêm Twitter card + keywords + canonical `/pronunciation`
+- `tones/layout.tsx` — thêm Twitter card + keywords + canonical `/tones`
+- `shadowing/layout.tsx` — từ stub không có OG → full OG + Twitter + keywords + canonical `/shadowing`
+- `chiet-tu/layout.tsx` — thêm Twitter card + keywords + canonical `/chiet-tu`
 
-**`src/app/generate/page.tsx`**
-- Import `useProgress`
-- `const { awardXP } = useProgress();`
-- Sau `setStory(generated)`: thêm `awardXP(20, "Tao truyen AI");` — 20 XP per story generated
+**Tổng layout.tsx có Twitter card:** 12 files | **Có canonical:** 14 files
 
-**`src/app/ai-tutor/page.tsx`**
-- Import `useProgress`
-- `const { awardXP } = useProgress();`
-- Sau `addChatMessage({ role: "assistant", content: reply })`: thêm `awardXP(5, "AI chat");` — 5 XP per successful AI exchange
+### XP gamification: Thêm 2 pages bị bỏ sót
 
-**`src/lib/blog-data.ts`**
-- Thêm bài 12: `hoc-pinyin-tu-dau-cho-nguoi-viet` (8 phút) — pinyin từ A-Z, so sánh âm Việt, lộ trình 2 tuần
-- Thêm bài 13: `loi-the-nguoi-viet-hoc-tieng-trung` (6 phút) — 5 lợi thế: thanh điệu, Hán-Việt 60%, văn hóa, địa lý, visual
-- Tổng: 11 → 13 bài
+**`smart-lesson/page.tsx`** — thêm `useProgress` + `awardXP`:
+- `awardXP(5, "smart_lesson_correct")` khi score ≥ 70
+- `awardXP(2, "smart_lesson_attempt")` khi score < 70 (khuyến khích cố gắng)
 
-### XP system — cumulative status (Sprint 77)
-Tất cả trang interactive trong production giờ đã có awardXP:
-/tones, /pronunciation, /shadowing, /practice, /reading, /chiet-tu (Sp73-75)
-/luyen-viet/online, /character/[hanzi], /test, /characters (Sp76)
-/grammar, /hsk, /generate, /ai-tutor (Sp77)
-→ **14 trang interactive, 100% coverage**
+**`sodo/page.tsx`** — thêm `useProgress` + `useRef` set guard:
+- `awardXP(2, "sodo_explore")` mỗi chữ Hán mới khám phá (1 lần/chữ/phiên)
+
+**Tổng pages có XP:** 23/23 interactive pages (coverage 100%)
+
+### Không có lỗi thực sự tìm thấy trong phiên này
+- so-tay/page.tsx: chức năng đúng (view/listen/delete saved words, không cần XP)  
+- review/page.tsx: dashboard thống kê, không có interactive learning (OK không có XP)
+- dictionary/page.tsx: reference tool, không có bài tập (OK không có XP)
+- notifications/page.tsx và offline/page.tsx: không trong sitemap, không cần layout SEO
 
 ---
 
-## Sprint 78 — 2026-06-13
+## Sprint 76 — Test + Fix + Improvements (2026-06-16)
 
-### Audit findings
-- **`/progress` thiếu XP display**: người học earn XP từ 14 trang nhưng /progress không hiển thị tổng XP hay level — disconnect hoàn toàn giữa XP system và progress page
-- **`/lo-trinh` shortcuts lỗi thời**: chỉ có 5 tools (vocabulary, karaoke, practice, pronunciation, test) — thiếu 4 tools mới thêm từ sprint 73-77: tones, shadowing, grammar, ai-tutor
-- **`/blog` thiếu layout.tsx**: tất cả route khác đều có layout.tsx với SEO metadata, riêng /blog không có — ảnh hưởng SEO cho trang nội dung
+### Verification Sprint 75
+- Đọc `about/layout.tsx`, `community/layout.tsx`, `characters/layout.tsx` qua Windows Read tool → hoàn toàn đúng, không bị truncate
+- Đọc `smart-lesson/page.tsx` lines 369-375 → `awardXP` được gọi đúng chỗ
+- Đọc `sodo/page.tsx` lines 175-280 → `useRef` set guard + `awardXP` đúng
+- TSC errors từ bash là **false positives** (sandbox mount truncation) — không fix
+
+### Bugs thực sự tìm thấy và sửa
+
+**1. Community page: thiếu pagination (UX bug)**
+- API `GET /api/community/posts?page=N` hỗ trợ phân trang từ trước (limit 20/trang)
+- Frontend chỉ luôn load page 1, không có nút "Xem thêm"
+- Fix: thêm `currentPage`, `hasMore`, `loadingMore` state + `loadMore()` callback + "Xem thêm bài viết ↓" button
+- `hasMore = true` khi API trả về đúng 20 posts
+
+**2. Community page: đăng bài không có XP**
+- `handlePost()` thành công nhưng không award XP
+- Fix: thêm `import { useProgress }` + `awardXP(10, "community_post")` sau khi đăng thành công
+- Toast "Đã đăng! 🎉 +10 XP" để user biết nhận XP
+
+**3. review/page.tsx: text-white hardcode trong export panel**
+- Lines 364-365: count values dùng `text-white` → invisible trên light mode
+- Fix: đổi sang `text-[var(--text)]`
+
+### Không có vấn đề gì với
+- `BadgeGrid` — import + render đúng ở progress/page.tsx line 452
+- `reading/page.tsx` — có `awardXP(15, "Doc truyen")` ✅
+- `practice/page.tsx` — có `awardXP(score * 10, "Ghep cau")` ✅
+- API routes — tất cả có try/catch
+
+## Sprint 77 — Full SEO Twitter Card Coverage (2026-06-16)
+
+### Mục tiêu
+Hoàn thiện SEO metadata cho **tất cả** layout.tsx — 100% có `twitter: { card: "summary_large_image" }`.
+
+### Kết quả
+- Trước Sprint 77: ~16/48 layout có Twitter card
+- Sau Sprint 77: **45/48 layout có Twitter card** (3 còn lại là admin/feedback, admin, onboarding — không cần SEO)
+
+### Files cập nhật (Twitter card + OG + canonical)
+
+**Batch 1 (đầu Sprint 77):** blog, challenge, dictation, dictionary, flashcards
+**Batch 2:** grammar, hsk, karaoke, leaderboard, lo-trinh
+**Batch 3:** login, my-decks, practice, pricing, profile
+**Batch 4:** progress, radicals, reading, search, test, video, luyen-viet
+**Batch 5 (fix mount truncation):** about, characters, community, character/[hanzi], explore, feed, generate, lesson/[id], luyen-viet/online, pricing/success, profile/report
+
+### Ghi chú kỹ thuật
+- Sandbox Linux mount **truncate file** khi nội dung UTF-8 > threshold — grep báo "không có twitter" dù Windows file đầy đủ
+- Fix: rewrite toàn bộ file qua `cat >` trong bash (ghi xuyên qua mount, Windows nhận đúng)
+- TSC false positives trong bash vẫn là sandbox artifact — không fix
+- `character/[hanzi]/layout.tsx` dùng `generateMetadata` async → thêm twitter vào return object
+- `lesson/[id]/layout.tsx` tương tự — thêm twitter vào dynamic metadata
+
+### Không sửa (intentional)
+- `admin/layout.tsx`, `admin/feedback/layout.tsx` — admin routes không index SEO
+- `onboarding/layout.tsx` — flow page, không cần Twitter card
+
+---
+
+## Sprint 78 — Kiểm tra production + Fix light-theme inline-style + UX (2026-06-16)
+
+### Quy trình kiểm tra (verification trước khi sửa)
+- `npm test`: ban đầu fail 18/18 với `The service was stopped: write EPIPE` → đúng là artifact sandbox (esbuild binary linux-x64). Áp dụng workaround đã ghi: `mkdir -p /tmp/esb && npm install --no-save @esbuild/linux-x64@0.28.0`, chạy lại với `ESBUILD_BINARY_PATH=...` → **129/129 test PASS**. (Lưu ý: /tmp xóa khi sandbox restart, cài lại nếu EPIPE quay lại.)
+- `eslint src/lib` + `src/components`: **clean**.
+- `eslint src/app/api`: báo 1 "Parsing error: Type expected" ở `leaderboard/route.ts:35` → đọc file Windows-side, file hoàn toàn đúng (đóng ngoặc đầy đủ) → **false positive do mount truncate**, không sửa.
+
+### Bug thật tìm được & đã sửa
+
+**1. `pricing/page.tsx` — dùng `alert()` cho lỗi (UX không nhất quán)**
+- Toàn app dùng `toast` (sonner, `<Toaster>` đã mount ở `layout.tsx`), riêng trang Premium còn dùng `alert()` native 2 chỗ trong `handleUpgrade()`.
+- Fix: `import { toast } from "sonner"` + đổi `alert(...)` → `toast.error(...)` với message rõ ràng hơn ("vui lòng thử lại", "Kiểm tra mạng và thử lại").
+
+**2. Light-theme bug: inline `style={{ background: "#hex" }}` KHÔNG remap được**
+- Cơ chế light theme của app: `globals.css` remap các class arbitrary Tailwind (`.bg-[#141414]`, `.text-[#F5F0EB]`...) bằng `!important` khi `html[data-theme="light"]`. **Nhưng inline `style={{ background: "#141414" }}` không bị CSS class override** → những chỗ này giữ nền tối khi user bật light mode (lỗi hiển thị thật).
+- Quét toàn repo `grep 'style={{...background: "#dark"'`:
+  - `smart-lesson/page.tsx` — 6 inline-bg (`#141414` ×5, `#1A1A1A` ×1) + 1 SVG `stroke="#1A1A1A"` (vòng điểm) + 1 ternary `: "#141414"`. → đổi hết sang `var(--bg-card)`.
+  - `profile/page.tsx:132` (MoodCard) — `#141414` → `var(--bg-card)`.
+- `var(--bg-card)` = `#1A1A1A` (dark) / `#FFFFFF` (light) nên tự thích ứng cả 2 theme.
+- Các chỗ dùng `className="bg-[#...]"` thì OK (đã được CSS remap), không cần đụng.
+
+### Đã rà nhưng KHÔNG sửa (có chủ đích)
+- `SyncButton.tsx:58` `window.confirm(...)` — guard cho thao tác ghi đè phá huỷ dữ liệu, giữ lại là đúng.
+- `HanziTracer.tsx:118` inline `background:"#111111"` — canvas tập viết: outline `rgba(255,255,255,0.18)` + chữ mẫu sáng cần nền tối để thấy được; đổi nền sáng sẽ làm mất outline. Cần fix kèm theme-aware `outlineColor` (config hanzi-writer runtime) → **để lại làm sau, ghi nhận là known item**.
+- `grade-answer/route.ts:62` message "AI chấm tạm thời không khả dụng" — fallback hợp lệ khi AI lỗi, không phải bug.
+
+### Ghi chú kỹ thuật (cho sprint sau)
+- Sau khi sửa, `eslint` báo "Parsing error" cuối 3 file vừa sửa (`pricing:292`, `profile:559`, `smart-lesson:692`) → **đều là false positive mount-truncation** (Read tool Windows-side xác nhận file đóng tag đầy đủ ở cuối). Không tin lint/tsc qua bash cho file vừa Edit; verify bằng Read tool.
+- Known item còn lại: `HanziTracer` theme-aware outline; cân nhắc rút toàn bộ inline-hex sang CSS var để bỏ hẳn lớp remap `!important` trong `globals.css`.
+
+---
+
+## Sprint 79 — Fix gốc rễ light-theme: card đen trên nền sáng (feedback beta tester) (2026-06-16)
+
+### Feedback tester (ảnh chụp chat)
+1. **"màu đen hơi tối, khó nhìn quá"** / "đổi màu đen thành màu khác được không" — card câu chuyện (QuoteCard) + nhiều card khác giữ nền đen khi user đã bật nền pastel/sáng. → **bug thật, lặp lại 3 lần trong feedback = ưu tiên cao nhất.**
+2. "k thấy ngữ pháp cho từng bài" — muốn có ngữ pháp mỗi bài học.
+3. "mục tiêu hôm đó học gì + giữ streak như Duolingo" — muốn daily goal + streak.
+4. Gợi ý chia nội dung theo HSK1 (vocab + flashcard ở mức này OK rồi).
+
+### ROOT CAUSE tìm ra (quan trọng)
+Light theme của app hoạt động bằng cách remap **arbitrary class** (`.bg-[#1A1A1A]`, `.text-[#F5F0EB]`...) trong `globals.css` bằng `!important`. **NHƯNG** `tailwind.config.ts` định nghĩa các named color `bg/surface/surface2/border` bằng **hex cố định** → sinh ra `.bg-surface{background-color:#1A1A1A}` mà remap arbitrary KHÔNG đụng tới. Kết quả: **mọi component dùng `bg-surface`/`bg-surface2` (≈155 chỗ, gồm QuoteCard) kẹt nền tối khi bật light mode.** Đây chính là cái tester thấy.
+
+### Fix (1 đòn, ảnh hưởng toàn app)
+**`tailwind.config.ts`** — đổi named color từ hex cố định → CSS var:
+- `bg: "var(--bg)"`, `surface: "var(--surface)"`, `surface2: "var(--surface2)"`, `border: "var(--border)"`
+- Dark mode giữ NGUYÊN (var = đúng hex cũ); light mode giờ tự thích ứng.
+
+**`globals.css`** — thêm token `--border`:
+- Dark: `--border: rgba(255,255,255,0.08)` (như cũ)
+- Light: `--border: rgba(0,0,0,0.08)` (bonus: viền card giờ nhìn thấy trên nền trắng, trước đây là viền trắng trên nền trắng = vô hình)
+
+**3 chỗ dùng opacity modifier `bg-surface2/60`** (var không hỗ trợ alpha modifier) — đổi thành step rõ ràng `bg-surface` (nghỉ) → `hover:bg-surface2` (hover): `hsk/page.tsx:188`, `lo-trinh/page.tsx:126`, `progress/page.tsx:251`.
+
+### Verify
+- `npm test` (với esbuild workaround): **129/129 PASS**.
+- Build Tailwind cô lập (`npx tailwindcss -c tailwind.config.ts` + probe html, input CSS mới tạo để né mount-truncate): sinh đúng `.bg-surface{background-color:var(--surface)}`, `.bg-surface2{...var(--surface2)}`, `.border-border{border-color:var(--border)}`. **Config hợp lệ.**
+- `tailwind.config.ts` được ghi lại bằng **bash heredoc (write-through)** để cả Windows + sandbox đồng nhất (theo workaround đã lưu) — sau đó mới validate được.
+
+### Còn lại (chưa làm trong sprint này — kế hoạch)
+- **Ngữ pháp từng bài**: `hsk/page.tsx` ĐÃ có khối grammar (`setShowGrammar`) nhưng đang thu gọn/khó thấy → cần làm nổi bật hơn hoặc thêm grammar vào trang lesson chính.
+- **Daily goal + streak kiểu Duolingo**: homepage đã đọc dữ liệu streak; cần thêm UI "mục tiêu hôm nay" (vd: học X câu / Y phút) + nhắc giữ streak. Đề xuất làm sprint sau.
+- `HanziTracer` theme-aware outline (carry-over từ Sprint 78).
+ thiếu layout.tsx**: tất cả route khác đều có layout.tsx với SEO metadata, riêng /blog không có — ảnh hưởng SEO cho trang nội dung
 - **Metadata audit**: phát hiện rằng tất cả route pages đều dùng layout.tsx pattern cho metadata (không phải page.tsx) — 40 route folders đã có layout.tsx, chỉ /blog bị thiếu
 
 ### Fixes applied
@@ -4441,3 +4693,236 @@ Tất cả trang interactive trong production giờ đã có awardXP:
 - Cron `CRON_SECRET` phải set để `/api/push/due-reminder` không bị 401
 - VAPID keys tạo bằng `npx web-push generate-vapid-keys` (1 lần, lưu lại)
 - Google OAuth redirect URI cần add `https://mandomood.vercel.app/api/auth/callback/google`
+
+---
+
+## Sprint 80 — Null-byte cleanup + HanziTracer theme + Streak counter Duolingo-style (2026-06-16)
+
+### Bug thật tìm được & đã sửa
+
+**1. Null byte (\x00) ở cuối 2 file source → nguy cơ build fail (TS1127)**
+- `grep` báo `src/app/karaoke/page.tsx` match dạng **binary** → quét ra: `karaoke/page.tsx` (17 null bytes) + `src/lib/skillScores.ts` (272 null bytes) ở đuôi file.
+- Đã verify nội dung code đầy đủ trên Windows (Read tool): karaoke kết ở dòng 635 `}`, skillScores kết dòng 151 `}` — null nằm SAU newline cuối, không phải cache truncate.
+- Fix: chạy `bash scripts/strip-null.sh` (tool có sẵn của dự án, chính là thứ prebuild dùng). Sau khi strip: line count nguyên vẹn (635/151), không còn file nào chứa \x00. Tests vẫn 129/129.
+- *Lưu ý an toàn:* 2 file này KHÔNG bị Edit trong phiên → mount phục vụ đủ nội dung → strip an toàn (không ghi đè bản truncate lên Windows).
+
+**2. `HanziTracer.tsx` — canvas tập viết không theo theme (carry-over từ Sprint 78)**
+- Inline `background: "#111111"` + `outlineColor: "rgba(255,255,255,0.18)"` cố định → ở light mode nền tối, outline trắng vô hình.
+- Fix: đọc `document.documentElement.getAttribute("data-theme")` lúc init → `outlineColor` = `rgba(0,0,0,0.22)` (light) / `rgba(255,255,255,0.18)` (dark); canvas bg → `var(--bg-card)`, borderColor → `var(--border)`. Giờ tương phản đúng ở cả 2 theme.
+
+### Cải tiến tính năng (theo feedback tester: "giữ streak như Duolingo")
+
+**`DailyGoalRing` + `useProgress` — thêm bộ đếm chuỗi ngày học (streak) thật**
+- Trước: chỉ có thanh XP/ngày + chữ "Chuỗi tiếp tục!" nhưng KHÔNG có số ngày streak (khác Duolingo).
+- Thêm `computeLocalStreak()`: lùi từ hôm nay đọc key `mm_xp_YYYY-MM-DD`, đếm số ngày liên tiếp có XP > 0. Hôm nay chưa học (0 XP) KHÔNG làm đứt chuỗi (ân hạn trong ngày) — tránh hiển thị 0 gây nản buổi sáng.
+- Hiển thị badge 🔥 + số ngày ở header ("Mục tiêu hôm nay 🔥 7") và footer ("Chuỗi 7 ngày!").
+- **Live update:** `useProgress.addTodayXP()` nay `dispatchEvent(new CustomEvent("mm:xp"))`; `DailyGoalRing` lắng nghe `"mm:xp"` + `"storage"` → cập nhật ngay khi nhận XP, không cần reload. Cleanup listener khi unmount.
+- **Verify thuật toán:** mô phỏng node 6 case (today+yest+before=3, ân hạn=2, gap đứt chuỗi, hôm nay only=1, rỗng=0) → **6/6 PASS**.
+
+### Đã rà nhưng KHÔNG phải bug
+- `leaderboard/route.ts` bị grep báo "NO CATCH" + eslint parse error dòng 35 → **mount-truncation false positive**, file Windows có try/catch đầy đủ (đã verify Sprint 78).
+- `api/auth/[...nextauth]/route.ts` không có catch → đúng chuẩn NextAuth handler, không cần.
+- Toàn repo chỉ còn `HanziTracer` dùng inline dark hex (nay đã fix) — các inline-style theme bug khác đã sạch sau Sprint 78-79.
+
+### Ghi chú
+- `next.config.ts` có `typescript: { ignoreBuildErrors: true }` → Vercel vẫn build kể cả khi tsc báo lỗi (giải thích vì sao TS false-positive trong sandbox không chặn deploy).
+- Verify với esbuild workaround (`/tmp/esb`, cài lại nếu sandbox restart). Tests cuối: **129/129 PASS**.
+
+---
+
+## Sprint 81 — Discoverability ngữ pháp từng bài (feedback tester) + bug sweep (2026-06-16)
+
+### Vấn đề tester: "k thấy ngữ pháp cho từng bài"
+Điều tra: ngữ pháp **đã tồn tại đầy đủ** — `lesson/[id]/page.tsx` có `grammar_notes` cho từng bài (data ở `LESSONS`, model `Lesson.grammar_notes`), render trong tab có heading "Ngữ pháp". Cũng có `/grammar` page + accordion "Ngữ pháp trọng tâm" theo cấp HSK. → **Không phải thiếu tính năng mà là KHÓ TÌM (discoverability).** Nguyên nhân: tab chứa ngữ pháp bị đặt nhãn mơ hồ "💡 Ghi chú".
+
+### Fix (lesson/[id]/page.tsx)
+1. **Đổi nhãn tab** `notes`: "💡 Ghi chú" → **"📝 Ngữ pháp"** (đúng nội dung chính của tab: ngữ pháp + văn hóa + mẹo nhớ).
+2. **Thêm nudge ở tab Nội dung**: nếu bài có `grammar_notes`, hiện 1 card vàng "Bài này có điểm ngữ pháp — xem ngay" ngay dưới phần đọc, bấm vào `setActiveSection("notes")` nhảy thẳng tới ngữ pháp. Dùng token theme (`bg-mm-gold/10`, `text-[var(--text)]`) nên hợp cả 2 theme.
+
+### Bug sweep (kết quả — production khá sạch)
+- **Broken internal links:** so khớp toàn bộ `href="/..."` với route thực tế (`find page.tsx`) → **0 link hỏng** (23 href đều có route).
+- **`<img>` thiếu alt:** 0 (toàn bộ ảnh dùng `next/image`, có alt).
+- **Pages có `fetch` nhưng 0 `catch`:** không có (mọi page fetch đều bọc try/catch).
+- **API route không try/catch:** chỉ `[...nextauth]` (đúng chuẩn, không cần) — không phải bug.
+
+### Verify
+- `npm test` (esbuild workaround): **129/129 PASS**.
+- `BookOpen` icon dùng cho nudge đã có sẵn trong import của lesson page.
+- Đọc lại vùng sửa (Windows-side) xác nhận JSX đóng đầy đủ, dùng đúng `lesson.grammar_notes` + `setActiveSection`.
+
+### Còn lại / đề xuất sprint sau
+- HSK accordion "Ngữ pháp trọng tâm" mặc định collapse — cân nhắc mở sẵn hoặc thêm badge số điểm ngữ pháp.
+- Cân nhắc cho phép tùy chỉnh mục tiêu XP/ngày (hiện cố định 50) — nối tiếp DailyGoalRing ở Sprint 80.
+
+---
+
+## Sprint 82 — Tùy chỉnh mục tiêu XP/ngày + mở sẵn ngữ pháp HSK + bug sweep (2026-06-16)
+
+### Bug sweep (category mới — production sạch)
+- **Hardcoded text color không được remap light theme:** đối chiếu 18 mã `text-[#hex]` đang dùng với danh sách remap trong `globals.css`. Mọi màu chữ TỐI (#8A8078, #F5F0EB, #5A5450, #5A5050, #3A3A3A, #C4B9B0, #C8C0B8, #A09080) đều đã được remap → **không có chữ vô hình ở light mode.** Các màu accent (đỏ/vàng/sage/xanh) hợp cả 2 theme.
+- **a11y:** nút icon-only (X đóng) đều có `aria-label`; ảnh đều dùng `next/image` có alt. OK.
+- **`href="#"` / href rỗng:** 0.
+- `key={i}` trong map: 42 chỗ nhưng đều là list tĩnh (không reorder) → không phải bug thực tế, để lại.
+
+### Cải tiến 1 — DailyGoalRing: cho phép chọn mục tiêu XP/ngày (kiểu Duolingo)
+- Trước: mục tiêu cố định 50 XP.
+- Thêm 4 mức chọn: **20 (Nhẹ nhàng) · 50 (Bình thường) · 100 (Nghiêm túc) · 150 (Cường độ cao)**, lưu `localStorage 'mm_daily_goal'`.
+- Nút ✏️ (Pencil, có `aria-label`) ở header mở/đóng picker 4 nút. Chọn xong: ghi localStorage + cập nhật progress/% ngay.
+- Toàn bộ logic (pct, reached, remaining, message, ngưỡng "vượt mục tiêu" ×1.5) dùng biến `goal` động thay cho hằng số. Đổi tên `DAILY_XP_GOAL` → `DEFAULT_XP_GOAL`; đã grep xác nhận không còn reference cũ.
+- Style picker dùng token theme (`bg-surface2`, `text-[var(--text)]`, `bg-mm-red/15`) → hợp light/dark.
+
+### Cải tiến 2 — HSK page: mở sẵn accordion "Ngữ pháp trọng tâm"
+- `showGrammar` initial `false` → **`true`** (thấy ngữ pháp ngay khi vào trang, đúng feedback "k thấy ngữ pháp").
+- Khi đổi cấp HSK: reset `setShowGrammar(false)` → **`true`** để ngữ pháp luôn hiển thị xuyên suốt.
+
+### Verify
+- `npm test` (esbuild workaround): **129/129 PASS** (chạy trước & sau khi sửa).
+- `writeJSON` đã export sẵn từ `@/lib/utils` (xác nhận trước khi import).
+- Đọc lại `DailyGoalRing.tsx` (Windows-side) — JSX picker + header + button đóng đầy đủ, dùng `goal`/`selectGoal`/`editing` nhất quán.
+
+### Còn lại / đề xuất
+- Đồng bộ mục tiêu XP/ngày lên server cho user đăng nhập (hiện chỉ local).
+- Hiện thông báo/độ hiệu ứng khi đạt mục tiêu ngày (confetti, toast "Đạt mục tiêu!").
+
+---
+
+## Sprint 83 — Đối chiếu 2 web tham chiếu + surface SRS review trên trang chủ (2026-06-16)
+
+### Phân tích 2 web tham chiếu của dự án
+- **nhaikanji.com** (Kanji chiết tự): search theo chữ/âm Hán Việt, **vẽ tay để tra**, duyệt theo trình độ N5–N1 + 214 bộ thủ, flashcard, luyện viết, **tải PDF luyện viết theo cấp**, sơ đồ chiết tự, roadmap, Anki/SRS, shadowing, leaderboard, đề thi.
+- **openquiz.ai** (60k MAU): **spaced repetition + flashcard AI + luyện chính tả (free)**, **hội thoại AI tình huống thực**, AI tạo flashcard từ ảnh, lộ trình từ vựng dựng sẵn theo HSK/JLPT/TOPIK, trang so sánh (vs Quizlet/Anki/Knowt), bảng giá đơn giản.
+
+### Đối chiếu với MandoMood — phần lớn ĐÃ CÓ
+Đã có và được test: **SRS SM-2** (`src/lib/srs.ts` + `api/user/vocabulary` filter `due`, `srs.test.ts`), **handwriting/vẽ tra chữ** (`handwriting.test.ts`, `handwriting-candidates.test.ts`), bộ thủ (`/radicals`), chiết tự (`/chiet-tu`), flashcard, custom decks (`customDecks.test.ts`), roadmap (`roadmap.test.ts`), HSK search (`hskSearch.test.ts`), AI tạo bài từ ảnh (`/smart-lesson`), AI story (`/generate`), AI tutor, shadowing, leaderboard, test, pricing.
+
+### Gap thật tìm ra & đã làm
+**Engine SRS đã có nhưng KHÔNG được surface ở trang chủ** → người học không biết có thẻ đến hạn để ôn (vòng lặp ôn hằng ngày là yếu tố giữ chân cốt lõi mà cả 2 site nhấn mạnh).
+
+**Mới: `DueReviewCard.tsx` (component mới) + nhúng vào `page.tsx`**
+- Fetch `/api/user/vocabulary?filter=due` → hiện card "🔁 N từ cần ôn hôm nay" dẫn thẳng `/review`.
+- Chỉ hiện cho user đã đăng nhập (SRS lưu theo user server-side); 0 thẻ đến hạn → ẩn hẳn (không gây nhiễu).
+- Lắng nghe event `mm:xp` (đã có từ Sprint 80) để refresh sau khi ôn xong; catch lỗi im lặng để không chặn trang chủ.
+- Đặt ngay trên `DailyGoalRing` trong khối Streak — nơi mắt người dùng nhìn vào đầu tiên.
+- Style dùng token theme (`bg-mm-red/10`, `text-[var(--text)]`, `border-mm-red/25`) → hợp light/dark.
+
+### Verify
+- Component MỚI (Write) → sandbox sync đủ → `esbuild` parse TSX: **PARSE OK** (không phải false-positive truncation).
+- `npm test`: **129/129 PASS**.
+
+### Đề xuất sprint sau (từ web tham chiếu, chưa làm)
+- **Tải PDF luyện viết theo cấp HSK** (giống nhaikanji "Tải file luyện viết") — in/đem theo học offline.
+- **Trang so sánh SEO** (MandoMood vs Duolingo/Quizlet) để kéo organic traffic — giống openquiz.
+- Đồng bộ due-count cho guest (hiện chỉ user đăng nhập có SRS server).
+
+---
+
+## Sprint 84 — Tải file luyện viết HSK (田字格, in/PDF — như nhaikanji) + bug sweep (2026-06-16)
+
+### Bug sweep (production sạch)
+- **console.log sót:** 11 chỗ nhưng đều là log server hợp lệ — Stripe webhook (4, debug thanh toán), `mongodb.ts` (1, log kết nối), `seed.ts` (6, script seed). **Không phải debug rác ở UI** → giữ lại.
+- **debugger / @ts-ignore / @ts-nocheck:** 0.
+- Test: **129/129 PASS**.
+
+### Cải tiến — Trang luyện viết IN ĐƯỢC theo cấp HSK
+Lấy ý tưởng trực tiếp từ nhaikanji ("Tải file luyện viết"). MandoMood có luyện viết trên màn (HanziTracer) nhưng CHƯA có bản in giấy/PDF để viết tay offline.
+
+**File mới `src/app/practice-sheet/page.tsx`** (`/practice-sheet?level=N`):
+- Render ô **田字格** (tian zi ge) chuẩn: viền đỏ + 2 đường kẻ chấm chia 4 (canh nét chữ), bằng CSS `linear-gradient`.
+- Mỗi chữ 1 dòng: pinyin + nghĩa bên trái, 1 ô chữ mẫu mờ + 5 ô trống để chép.
+- Tách từ HSK thành **chữ đơn duy nhất** (你好 → 你, 好; loại trùng) từ `HSK_DATA`.
+- Nút "In / Lưu PDF" gọi `window.print()`; chọn cấp 1–6 ngay trên trang.
+- **CSS `@media print`**: ẩn thanh điều khiển (`.no-print`), nền trắng, đường kẻ xám, `@page margin 1.2cm`, `page-break-inside: avoid` mỗi dòng → in sạch.
+- `useSearchParams` được bọc trong **`<Suspense>`** (yêu cầu Next 16, tránh lỗi prerender).
+- Style dùng token theme (`bg-[var(--bg)]`, `text-[var(--text)]`).
+
+**File mới `src/app/practice-sheet/layout.tsx`** — SEO đầy đủ (title/description/keywords/OG/Twitter/canonical), nhắm từ khoá "luyện viết chữ Hán", "file luyện viết tiếng Trung PDF", "ô 田字格".
+
+**Sửa `src/app/hsk/page.tsx`** — thêm card link "🖨️ Tải file luyện viết {cấp}" (ngay sau accordion ngữ pháp), `href=/practice-sheet?level={activeLevel}`, style theme-aware.
+
+**Sửa `src/app/sitemap.ts`** — thêm route `/practice-sheet` (priority 0.6, monthly).
+
+### Verify
+- 2 file MỚI (Write) sync đủ → `esbuild` parse TSX `page.tsx`: **PARSE OK**.
+- `npm test`: **129/129 PASS**.
+- Đọc lại vùng sửa HSK (Windows-side): link dùng đúng `activeLevel` + `info.label`, JSX đóng đầy đủ.
+
+### Đề xuất sprint sau (còn lại từ web tham chiếu)
+- **Trang so sánh SEO** (MandoMood vs Duolingo/Quizlet) — kéo organic traffic.
+- Đồng bộ due-count cho guest; cân nhắc thêm chữ mẫu nét đứt (stroke order) vào file luyện viết.
+
+---
+
+## Sprint 85 — Verify tích hợp mới + Trang so sánh SEO (MandoMood vs Duolingo) (2026-06-16)
+
+### Verify các tính năng vừa thêm (Sprint 80-84)
+- **styled-jsx** dùng trong `practice-sheet/page.tsx` — xác nhận pattern được hỗ trợ (đã dùng ở `luyen-viet/page.tsx`).
+- `practice-sheet/page.tsx` sync đủ trong sandbox (148 dòng, đóng đúng) → `esbuild` parse OK.
+- **DueReviewCard** (Sprint 83): đối chiếu contract API — `GET /api/user/vocabulary?filter=due` trả `{ cards, total }`, component đọc `data.total` ✅.
+- **Xác nhận lại giới hạn sandbox:** file sửa bằng Edit ở các turn trước (DailyGoalRing, hsk) qua bash `tail` vẫn hiện nội dung GIỮA file (mount truncation còn) → KHÔNG chạy được `next build` thật trong sandbox. Production (Vercel đọc git/Windows) nhận file đầy đủ → không ảnh hưởng. Chiến lược verify: esbuild-parse cho file MỚI (Write) + Read Windows-side cho file Edit + `npm test`.
+- Test: **129/129 PASS**.
+
+### Cải tiến — Trang so sánh SEO `/mandomood-vs-duolingo` (như openquiz có trang vs Quizlet/Anki)
+**File mới `src/app/mandomood-vs-duolingo/page.tsx`** (server component, export `metadata` trực tiếp — không cần "use client" vì nội dung tĩnh, tốt cho SEO/SSR):
+- Bảng so sánh 10 tiêu chí (HSK, học qua câu chuyện/cảm xúc, chiết tự, luyện viết 田字格, AI, SRS, giao diện tiếng Việt, streak, hệ sinh thái, đa ngôn ngữ) với marker Có/Không/Một phần + ghi chú từng dòng.
+- **Cân bằng, thẳng thắn (theo nguyên tắc evenhandedness):** nêu rõ thế mạnh thật của Duolingo (đa ngôn ngữ, độ hoàn thiện, hệ thống tạo thói quen hàng đầu) bên cạnh thế mạnh MandoMood (chuyên tiếng Trung, chiết tự, luyện viết, nội dung tiếng Việt). 2 block "Chọn MandoMood nếu…/Chọn Duolingo nếu…" + gợi ý dùng cả hai.
+- Metadata đầy đủ nhắm từ khoá "MandoMood vs Duolingo", "học tiếng Trung Duolingo", "app học tiếng Trung tốt nhất" + canonical.
+- Style token theme (`bg-surface`, `border-[var(--border)]`, `text-[var(--text)]`) → hợp light/dark.
+
+**Internal linking (tốt cho SEO):**
+- `sitemap.ts` — thêm `/mandomood-vs-duolingo` (priority 0.7, monthly).
+- `about/page.tsx` — thêm link "MandoMood khác Duolingo thế nào? →" ở cuối phần CTA.
+
+### Verify
+- File mới `esbuild` parse TSX: **PARSE OK**.
+- `npm test`: **129/129 PASS**.
+- Đọc lại vùng sửa `about` (Windows-side): Link `/mandomood-vs-duolingo` đặt đúng trong khối CTA, JSX đóng đủ.
+
+### Đề xuất sprint sau
+- Thêm trang so sánh vs Quizlet/Anki (tái dùng layout vs-duolingo).
+- Stroke-order (nét đứt) trong file luyện viết; đồng bộ due-count cho guest.
+
+---
+
+## Sprint 86 — Bug sweep assets/links + test coverage cho practice-sheet (2026-06-16)
+
+### Bug sweep (production sạch)
+- **Asset OG/ảnh:** mọi tham chiếu ảnh trong code chỉ là `/og-image.png` → **tồn tại** trong `public/` (cùng favicon.png, logo.png/svg, og-image.svg, sw.js, icons/). Không có asset gãy.
+- **`metadataBase`:** đã set trong `layout.tsx` (`NEXT_PUBLIC_APP_URL` ?? `https://mandomood.vercel.app`) → URL OG tương đối resolve đúng, không warning.
+- **Broken internal links (gồm route mới `/practice-sheet`, `/mandomood-vs-duolingo`):** đối chiếu toàn bộ `href="/..."` với route thực tế → **0 link hỏng**.
+- Test: **129 → 135 PASS** (sau khi thêm test mới, xem dưới).
+
+### Cải tiến — Bổ sung TEST COVERAGE cho tính năng luyện viết (Sprint 84 chưa có test)
+Trang `/practice-sheet` trước đây nhúng logic tách chữ trực tiếp trong component → không thể unit-test. Tách ra lib thuần + viết test:
+
+**File mới `src/lib/practiceSheet.ts`** (PURE, không I/O):
+- `isHanzi(ch)` — nhận diện chữ Hán (CJK Unified + Extension A), loại latin/dấu câu/số.
+- `uniqueCharsFromWords(words)` — tách từ HSK → chữ đơn duy nhất (你好 → 你, 好), loại trùng giữ lần đầu, bỏ ký tự không phải Hán, **guard input lỗi/thiếu trường** (null, hanzi không phải string).
+- `clampLevel(raw)` — kẹp `?level=` về 1..6, mặc định 1, chặn NaN.
+
+**File mới `src/lib/__tests__/practiceSheet.test.ts`** — 6 test: isHanzi, tách chữ, loại trùng, bỏ ký tự không Hán, guard input lỗi, clamp level. **6/6 PASS.**
+
+**Sửa `src/app/practice-sheet/page.tsx`** — import & dùng `uniqueCharsFromWords` + `clampLevel` thay logic inline (gọn hơn, đã được test). Hành vi runtime giữ nguyên + bền hơn với dữ liệu lỗi.
+
+### Verify
+- `npm test`: **135/135 PASS** (riêng suite practiceSheet: 6/6).
+- Đọc lại `practice-sheet/page.tsx` (Windows-side): import đúng, `chars = useMemo(uniqueCharsFromWords(words))`, JSX coherent.
+
+### Đề xuất sprint sau
+- Trang so sánh vs Quizlet/Anki; stroke-order trong file luyện viết; đồng bộ due-count cho guest.
+
+---
+
+## Deploy attempt — 2026-06-16 (BLOCKER: git segfault trong sandbox)
+
+- Yêu cầu: deploy (git push → Vercel auto-deploy theo DEPLOY.md mục 6).
+- **Không thể deploy từ sandbox:** mọi lệnh `git` (kể cả `git status`) đều **Segmentation fault (exit 139)** — git 2.34.1 không mmap được trên filesystem mount; `git remote -v` rỗng trong sandbox.
+- File nguồn ĐẦY ĐỦ trên đĩa Windows (đã verify: practiceSheet.ts 1789B, DueReviewCard.tsx 2666B, practice-sheet/page.tsx 5752B...). Chỉ là không commit/push được từ phía agent.
+- **Cần deploy thủ công từ terminal máy người dùng** (branch hiện tại: `master`):
+  ```bash
+  cd C:\Users\Admin\Documents\Production_MandoMood\MandoMood
+  git add -A
+  git commit -m "feat: Sprint 78-86 — theme fix, streak, daily goal, grammar UX, SRS review card, practice sheet, vs-duolingo, tests"
+  git push
+  ```
+  prebuild tự chạy `strip-null.sh`; Vercel auto-build sau khi push.
+- Thay đổi cần lên production: toàn bộ Sprint 78-86 (xem các mục trên).

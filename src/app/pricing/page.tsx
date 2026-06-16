@@ -13,6 +13,7 @@ import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { trackEvent } from "@/lib/analytics";
+import { toast } from "sonner";
 
 const PLANS = [
   {
@@ -92,10 +93,10 @@ export default function PricingPage() {
       if (data.url) {
         window.location.href = data.url;
       } else {
-        alert(data.error ?? "Có lỗi xảy ra");
+        toast.error(data.error ?? "Có lỗi xảy ra, vui lòng thử lại");
       }
     } catch {
-      alert("Không kết nối được Stripe");
+      toast.error("Không kết nối được Stripe. Kiểm tra mạng và thử lại.");
     } finally {
       setLoading(false);
     }

@@ -8,10 +8,13 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { CheckCircle2, Circle, Sparkles } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { readJSON } from "@/lib/utils";
+import { CheckCircle2, Circle, Sparkles, Target } from "lucide-react";
+import { cn, readJSON } from "@/lib/utils";
 import { useAppStore } from "@/store/useAppStore";
+import SkillRadar from "@/components/ui/SkillRadar";
+import { computeSkillScores, SKILL_LABELS, overallScore, weakestSkill, strongestSkill, levelFromScore } from "@/lib/skillScores";
+import type { SkillScores } from "@/lib/skillScores";
+import { getPersonalizedMilestones, getMotivationalMessage } from "@/lib/learningPath";
 
 const LEVELS = [
   { level: 1, label: "HSK 1", words: 150, desc: "Chào hỏi, giới thiệu bản thân, sinh hoạt cơ bản", color: "from-green-500 to-emerald-400", est: "1–2 tháng" },
@@ -25,9 +28,11 @@ const LEVELS = [
 export default function RoadmapPage() {
   const { onboarding } = useAppStore();
   const [best, setBest] = useState<Record<string, number>>({});
+  const [skillScores, setSkillScores] = useState<SkillScores>({ vocab: 0, listening: 0, speaking: 0, reading: 0, writing: 0 });
 
   useEffect(() => {
     setBest(readJSON<Record<string, number>>("mm_hsk_quiz_best", {}));
+    setSkillScores(computeSkillScores());
   }, []);
 
   // Cấp hiện tại suy từ onboarding (vd "hsk2" → 2)
@@ -36,15 +41,121 @@ export default function RoadmapPage() {
     return m ? Number(m[1]) : 1;
   })();
 
+  const overall = overallScore(skillScores);
+  const hasSkillData = overall > 0;
+  const milestones = getPersonalizedMilestones(skillScores);
+  const weak = hasSkillData ? weakestSkill(skillScores) : null;
+  const strong = hasSkillData ? strongestSkill(skillScores) : null;
+
   return (
     <div className="min-h-screen px-4 py-6 max-w-lg mx-auto">
-      <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="mb-6">
-        <h1 className="font-playfair text-2xl font-bold mb-1">Lộ trình HSK 🗺️</h1>
+      <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="mb-5">
+        <h1 className="font-playfair text-2xl font-bold mb-1">Lộ trình của bạn 🗺️</h1>
         <p className="text-sm text-[var(--text-muted)]">
-          Hành trình từ con số 0 đến thành thạo — mỗi cấp có đủ công cụ luyện.
-          Đạt quiz ≥ 80% để &ldquo;hoàn thành&rdquo; một chặng.
+          Dựa trên dữ liệu học thực tế — lộ trình cá nhân hoá theo kỹ năng của bạn.
         </p>
       </motion.div>
+
+      {/* ── Phần cá nhân hoá ── */}
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.05 }}
+        className="rounded-2xl bg-surface border border-[rgba(255,255,255,0.07)] p-4 mb-5"
+      >
+        {/* Radar + trình độ */}
+        <div className="flex items-start gap-4 mb-4">
+          <SkillRadar scores={skillScores} size={160} animated />
+          <div className="flex-1 pt-2">
+            <p className="text-[10px] text-[var(--text-muted)] uppercase tracking-widest mb-1">Trình độ tổng hợp</p>
+            <p className="text-lg font-bold text-mm-gold mb-1">{levelFromScore(overall)}</p>
+            <p className="text-[11px] text-[var(--text-muted)] leading-relaxed mb-3">
+              {getMotivationalMessage(overall)}
+            </p>
+            {hasSkillData && strong && weak && (
+              <div className="space-y-1">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-sm">{strong.emoji}</span>
+                  <span className="text-[10px] text-green-400">Mạnh: {strong.label} ({skillScores[strong.key]})</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-sm">{weak.emoji}</span>
+                  <span className="text-[10px] text-mm-red">Cần rèn: {weak.label} ({skillScores[weak.key]})</span>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Thanh kỹ năng */}
+        <div className="space-y-1.5 mb-4">
+          {SKILL_LABELS.map((sk) => {
+            const s = skillScores[sk.key];
+            return (
+              <div key={sk.key} className="flex items-center gap-2">
+                <span className="text-sm w-5 shrink-0">{sk.emoji}</span>
+                <span className="text-[10px] w-14 shrink-0 text-[var(--text-muted)]">{sk.label}</span>
+                <div className="flex-1 h-1.5 rounded-full bg-surface2 overflow-hidden">
+                  <div
+                    className="h-full rounded-full transition-all duration-700"
+                    style={{ width: `${s}%`, backgroundColor: sk.color }}
+                  />
+                </div>
+                <span className="text-[10px] w-7 text-right" style={{ color: s > 0 ? sk.color : "rgba(255,255,255,0.25)" }}>
+                  {s > 0 ? s : "—"}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* 3 bước tiếp theo */}
+        {milestones.length > 0 && (
+          <div>
+            <div className="flex items-center gap-1.5 mb-2">
+              <Target size={11} className="text-mm-gold" />
+              <p className="text-[10px] text-[var(--text-muted)] uppercase tracking-widest">
+                {hasSkillData ? "3 bước tiếp theo của bạn" : "Bắt đầu từ đây nhé 👇"}
+              </p>
+            </div>
+            <div className="space-y-1.5">
+              {milestones.map((m, idx) => (
+                <Link
+                  key={m.id}
+                  href={m.href}
+                  className="flex items-center gap-2.5 p-2.5 rounded-xl bg-surface hover:bg-surface2 transition-colors group"
+                >
+                  <span className="text-base shrink-0">{m.emoji}</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[11px] font-semibold leading-tight group-hover:text-mm-gold transition-colors truncate">
+                      {m.title}
+                    </p>
+                    <p className="text-[9px] text-[var(--text-muted)] leading-tight mt-0.5 line-clamp-1">
+                      {m.desc}
+                    </p>
+                  </div>
+                  {idx === 0 && (
+                    <span className="shrink-0 text-[8px] px-1.5 py-0.5 rounded-full bg-mm-red/20 text-mm-red font-bold">
+                      #1
+                    </span>
+                  )}
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {!hasSkillData && (
+          <p className="text-xs text-center text-[var(--text-muted)] py-1">
+            Học thử các chức năng để lộ trình tự cập nhật theo bạn ✨
+          </p>
+        )}
+      </motion.div>
+
+      {/* Divider */}
+      <p className="text-[10px] text-[var(--text-muted)] uppercase tracking-widest mb-4 text-center">
+        — Lộ trình HSK chi tiết —
+      </p>
 
       <div className="relative pb-16">
         {/* Đường nối dọc */}

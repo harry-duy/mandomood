@@ -364,7 +364,7 @@ export default function LessonDetailPage() {
       {/* Section tabs */}
       <div className="flex gap-1 px-4 mb-6 bg-surface2 mx-4 p-1 rounded-2xl">
         {(["text", "vocab", "notes", "pronunciation"] as const).map((tab) => {
-          const labels = { text: "📖 Nội dung", vocab: "📚 Từ vựng", notes: "💡 Ghi chú", pronunciation: "🎙️ Phát âm" };
+          const labels = { text: "📖 Nội dung", vocab: "📚 Từ vựng", notes: "📝 Ngữ pháp", pronunciation: "🎙️ Phát âm" };
           return (
             <button
               key={tab}
@@ -432,6 +432,20 @@ export default function LessonDetailPage() {
                 </div>
               </motion.div>
             ))}
+
+            {/* Nudge ngữ pháp — giúp người học thấy có phần ngữ pháp cho bài này */}
+            {lesson.grammar_notes && (
+              <button
+                onClick={() => setActiveSection("notes")}
+                className="w-full flex items-center gap-2.5 p-3 rounded-2xl bg-mm-gold/10 border border-mm-gold/25 text-left hover:bg-mm-gold/15 transition-colors"
+              >
+                <BookOpen size={16} className="text-mm-gold shrink-0" />
+                <span className="text-sm text-[var(--text)] flex-1">
+                  Bài này có <span className="font-semibold text-mm-gold">điểm ngữ pháp</span> — xem ngay
+                </span>
+                <span className="text-mm-gold text-lg leading-none">›</span>
+              </button>
+            )}
 
             {/* Complete button */}
             <motion.button

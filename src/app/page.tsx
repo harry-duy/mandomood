@@ -17,6 +17,7 @@ import NextLesson from "@/components/ui/NextLesson";
 import TrialReminderBanner from "@/components/ui/TrialReminderBanner";
 import MoodCheckIn from "@/components/ui/MoodCheckIn";
 import DailyGoalRing from "@/components/ui/DailyGoalRing";
+import DueReviewCard from "@/components/ui/DueReviewCard";
 import { useAppStore } from "@/store/useAppStore";
 import { cn, readJSON } from "@/lib/utils";
 
@@ -247,6 +248,7 @@ export default function HomePage() {
         transition={{ duration: 0.6, delay: 0.18 }}
         className="mb-6"
       >
+        <DueReviewCard />
         <div className="mb-3">
           <DailyGoalRing />
         </div>
@@ -278,6 +280,12 @@ export default function HomePage() {
             className="flex items-center justify-center gap-1.5 text-xs text-[var(--text-muted)] hover:text-mm-red transition-colors"
           >
             📈 Tiến trình
+          </Link>
+          <Link
+            href="/lo-trinh"
+            className="flex items-center justify-center gap-1.5 text-xs text-[var(--text-muted)] hover:text-mm-red transition-colors"
+          >
+            🗺️ Lộ trình
           </Link>
           <Link
             href="/so-tay"

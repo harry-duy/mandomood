@@ -67,7 +67,10 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  themeColor: "#0D0D0D",
+  themeColor: [
+    { media: "(prefers-color-scheme: dark)", color: "#0D0D0D" },
+    { media: "(prefers-color-scheme: light)", color: "#F7F2EC" },
+  ],
 };
 
 const BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://mandomood.vercel.app";

@@ -361,8 +361,8 @@ export default function ReviewPage() {
                   </p>
                 </div>
                 <div className="text-xs text-[var(--text-muted)] space-y-1">
-                  <div className="flex justify-between"><span>Câu nói đã lưu</span><span className="font-semibold text-white">{quotes.length}</span></div>
-                  <div className="flex justify-between"><span>Từ vựng trong bộ thẻ</span><span className="font-semibold text-white">{vocab.length}</span></div>
+                  <div className="flex justify-between"><span>Câu nói đã lưu</span><span className="font-semibold text-[var(--text)]">{quotes.length}</span></div>
+                  <div className="flex justify-between"><span>Từ vựng trong bộ thẻ</span><span className="font-semibold text-[var(--text)]">{vocab.length}</span></div>
                 </div>
                 <button onClick={handleExport}
                   className="w-full flex items-center justify-center gap-2 py-3 bg-mm-red text-white rounded-2xl font-semibold hover:bg-mm-red/90 transition-colors">

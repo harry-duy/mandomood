@@ -6,6 +6,7 @@
  */
 
 import { useState, useRef, useCallback } from "react";
+import { useProgress } from "@/hooks/useProgress";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Upload, ImageIcon, FileText, Sparkles, CheckCircle2,
@@ -60,7 +61,7 @@ function ScoreRing({ score }: { score: number }) {
   return (
     <div className="relative w-12 h-12 flex items-center justify-center shrink-0">
       <svg width="48" height="48" className="-rotate-90">
-        <circle cx="24" cy="24" r={r} fill="none" stroke="#1A1A1A" strokeWidth="3" />
+        <circle cx="24" cy="24" r={r} fill="none" stroke="var(--bg-card)" strokeWidth="3" />
         <circle
           cx="24" cy="24" r={r} fill="none"
           stroke={color} strokeWidth="3"
@@ -82,7 +83,7 @@ function VocabCard({ item }: { item: VocabItem }) {
     <motion.div
       layout
       className="rounded-2xl p-4 cursor-pointer"
-      style={{ background: "#141414", border: "1px solid rgba(255,255,255,0.06)" }}
+      style={{ background: "var(--bg-card)", border: "1px solid rgba(255,255,255,0.06)" }}
       onClick={() => setOpen((v) => !v)}
     >
       <div className="flex items-center justify-between">
@@ -153,7 +154,7 @@ function ExerciseCard({
       style={{
         background: submitted && result
           ? result.correct ? "rgba(143,175,143,0.05)" : "rgba(232,80,74,0.04)"
-          : "#141414",
+          : "var(--bg-card)",
         border: submitted && result
           ? `1px solid ${result.correct ? "rgba(143,175,143,0.25)" : "rgba(232,80,74,0.2)"}`
           : "1px solid rgba(255,255,255,0.06)",
@@ -321,7 +322,7 @@ function UploadZone({ onFile }: { onFile: (f: File) => void }) {
             <div
               key={label}
               className="flex items-center gap-1.5 text-xs text-[#5A5450] px-3 py-1.5 rounded-full"
-              style={{ background: "#1A1A1A", border: "1px solid rgba(255,255,255,0.06)" }}
+              style={{ background: "var(--bg-card)", border: "1px solid rgba(255,255,255,0.06)" }}
             >
               <Icon size={12} />
               {label}
@@ -365,6 +366,7 @@ function PasteZone({ onText }: { onText: (t: string) => void }) {
 
 // ─── Main Page ─────────────────────────────────────────────────────────────────
 export default function SmartLessonPage() {
+  const { awardXP } = useProgress();
   const [step, setStep] = useState<UploadStep>("idle");
   const [tab, setTab] = useState<"upload" | "paste">("upload");
   const [data, setData] = useState<AnalyzedContent | null>(null);
@@ -445,6 +447,9 @@ export default function SmartLessonPage() {
         ...prev,
         [ex.id]: { ...prev[ex.id], grading: false, result: json, submitted: true },
       }));
+      // Cộng XP: 5 điểm nếu đúng (score >= 70), 2 điểm nếu có gắng làm bài
+      if (json.score >= 70) awardXP(5, "smart_lesson_correct");
+      else awardXP(2, "smart_lesson_attempt");
     } catch {
       setAnswers((prev) => ({
         ...prev,
@@ -492,7 +497,7 @@ export default function SmartLessonPage() {
             {/* Tab switcher */}
             <div
               className="flex rounded-2xl p-1 mb-4"
-              style={{ background: "#141414", border: "1px solid rgba(255,255,255,0.06)" }}
+              style={{ background: "var(--bg-card)", border: "1px solid rgba(255,255,255,0.06)" }}
             >
               {(["upload", "paste"] as const).map((t) => (
                 <button
@@ -563,7 +568,7 @@ export default function SmartLessonPage() {
             {/* Summary card */}
             <div
               className="rounded-2xl p-5"
-              style={{ background: "#141414", border: `1px solid ${levelColor}30` }}
+              style={{ background: "var(--bg-card)", border: `1px solid ${levelColor}30` }}
             >
               <div className="flex items-center gap-2 mb-3">
                 <BookOpen size={14} style={{ color: levelColor }} />
@@ -590,7 +595,7 @@ export default function SmartLessonPage() {
             {/* Section tabs */}
             <div
               className="flex rounded-2xl p-1"
-              style={{ background: "#141414", border: "1px solid rgba(255,255,255,0.06)" }}
+              style={{ background: "var(--bg-card)", border: "1px solid rgba(255,255,255,0.06)" }}
             >
               {([
                 { key: "vocab", label: `Từ vựng (${data.vocabulary?.length ?? 0})` },
@@ -669,7 +674,7 @@ export default function SmartLessonPage() {
           animate={{ opacity: 1 }}
           transition={{ delay: 0.3 }}
           className="mt-6 rounded-2xl p-4"
-          style={{ background: "#141414", border: "1px solid rgba(255,255,255,0.04)" }}
+          style={{ background: "var(--bg-card)", border: "1px solid rgba(255,255,255,0.04)" }}
         >
           <div className="flex items-center gap-2 mb-3">
             <AlertCircle size={13} className="text-[#5A5450]" />

@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { playTTS } from "@/hooks/useTTS";
 import { Volume2, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useProgress } from "@/hooks/useProgress";
 
 /* ─── 60 bộ thủ phổ biến nhất ─── */
 const RADICALS = [
@@ -76,10 +77,12 @@ const STROKE_RANGES = [
 ];
 
 export default function RadicalsPage() {
+  const { awardXP } = useProgress();
+  const awardedSet = useRef(new Set<string>());
   const [search, setSearch] = useState("");
   const [strokeFilter, setStrokeFilter] = useState<string | null>(null);
   const [selectedRadical, setSelectedRadical] = useState<typeof RADICALS[0] | null>(null);
-  
+
 
   const filtered = RADICALS.filter(r => {
     const matchSearch = !search || r.hanzi.includes(search) || r.meaning.toLowerCase().includes(search.toLowerCase()) || r.pinyin.includes(search);
@@ -138,7 +141,13 @@ export default function RadicalsPage() {
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ delay: i * 0.015 }}
-              onClick={() => setSelectedRadical(r)}
+              onClick={() => {
+                setSelectedRadical(r);
+                if (!awardedSet.current.has(r.hanzi)) {
+                  awardedSet.current.add(r.hanzi);
+                  awardXP(3, "Kham pha bo thu");
+                }
+              }}
               className={cn(
                 "flex flex-col items-center gap-1 p-3 rounded-2xl border transition-all",
                 selectedRadical?.hanzi === r.hanzi

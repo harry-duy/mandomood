@@ -13,9 +13,13 @@ export async function GET(req: NextRequest) {
     await connectDB();
     const period = req.nextUrl.searchParams.get("period") ?? "weekly";
 
-    const users = await User.find({})
+    // Sort: weekly → weekly_xp, test → test_best_pct (chỉ lấy người đã từng thi), alltime → xp
+    const sortField = period === "weekly" ? { weekly_xp: -1 } : period === "test" ? { test_best_pct: -1 } : { xp: -1 };
+    const filterQuery = period === "test" ? { tests_taken: { $gt: 0 } } : {};
+
+    const users = await User.find(filterQuery)
       .select("name image xp streak level weekly_xp test_best_pct tests_taken")
-      .sort(period === "weekly" ? { weekly_xp: -1 } : { xp: -1 })
+      .sort(sortField)
       .limit(50)
       .lean();
 

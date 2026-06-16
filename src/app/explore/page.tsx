@@ -4,7 +4,7 @@
  */
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import {
@@ -14,6 +14,7 @@ import {
   BarChart2, Repeat, MonitorPlay, Rss,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { computeSkillScores, weakestSkill } from "@/lib/skillScores";
 
 type Tool = {
   href: string;
@@ -25,6 +26,35 @@ type Tool = {
 };
 
 type Section = { title: string; tools: Tool[] };
+
+/** Gợi ý công cụ theo kỹ năng yếu nhất */
+const SKILL_RECS: Record<string, { href: string; emoji: string; label: string; why: string }[]> = {
+  vocab: [
+    { href: "/hsk", emoji: "📚", label: "Quiz HSK", why: "Nạp từ vựng theo cấp độ" },
+    { href: "/flashcards", emoji: "🎴", label: "Flashcard SRS", why: "Ôn từ đúng lúc sắp quên" },
+    { href: "/so-tay", emoji: "📒", label: "Sổ tay từ", why: "Xem & ôn lại từ đã lưu" },
+  ],
+  listening: [
+    { href: "/tones", emoji: "🎵", label: "Thanh điệu", why: "Phân biệt 4 tones cơ bản" },
+    { href: "/karaoke", emoji: "🎤", label: "Karaoke", why: "Nghe bài hát + shadowing" },
+    { href: "/dictation", emoji: "✏️", label: "Chính tả", why: "Nghe → gõ lại từng từ" },
+  ],
+  speaking: [
+    { href: "/pronunciation", emoji: "🎙️", label: "Phát âm", why: "Nói + nhận điểm AI" },
+    { href: "/shadowing", emoji: "🔊", label: "Shadowing", why: "Nghe & nhái theo người bản ngữ" },
+    { href: "/practice", emoji: "⚔️", label: "Ghép câu", why: "Xây câu hoàn chỉnh" },
+  ],
+  reading: [
+    { href: "/reading", emoji: "📖", label: "Đọc hiểu", why: "Đoạn văn theo cấp HSK" },
+    { href: "/grammar", emoji: "⭐", label: "Ngữ pháp", why: "12 cấu trúc thông dụng" },
+    { href: "/generate", emoji: "✨", label: "AI Story", why: "Đọc truyện ngắn AI tạo" },
+  ],
+  writing: [
+    { href: "/viet-tay", emoji: "✍️", label: "Vẽ tay tra chữ", why: "Viết tay để tra Hán tự" },
+    { href: "/luyen-viet/online", emoji: "🖊️", label: "Luyện viết online", why: "Nét bút động hanzi-writer" },
+    { href: "/generate", emoji: "🤖", label: "AI Story", why: "Tạo truyện → luyện tư duy viết" },
+  ],
+};
 
 const SECTIONS: Section[] = [
   {
@@ -96,6 +126,13 @@ const SECTIONS: Section[] = [
 export default function ExplorePage() {
   const router = useRouter();
   const [query, setQuery] = useState("");
+  const [weakKey, setWeakKey] = useState<string | null>(null);
+
+  useEffect(() => {
+    const scores = computeSkillScores();
+    const hasData = Object.values(scores).some((v) => v > 0);
+    if (hasData) setWeakKey(weakestSkill(scores).key);
+  }, []);
 
   const sections = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -138,6 +175,33 @@ export default function ExplorePage() {
           aria-label="Tìm công cụ"
         />
       </div>
+
+      {/* Gợi ý cá nhân hoá — chỉ hiện khi có dữ liệu kỹ năng và không đang tìm kiếm */}
+      {!query && weakKey && SKILL_RECS[weakKey] && (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.35 }}
+          className="mb-7"
+        >
+          <p className="text-xs text-[var(--text-muted)] uppercase tracking-widest mb-3">
+            🎯 Dành cho bạn — luyện kỹ năng {weakKey === "vocab" ? "Từ vựng" : weakKey === "listening" ? "Nghe" : weakKey === "speaking" ? "Nói" : weakKey === "reading" ? "Đọc" : "Viết"}
+          </p>
+          <div className="grid grid-cols-3 gap-2">
+            {SKILL_RECS[weakKey].map((rec) => (
+              <button
+                key={rec.href}
+                onClick={() => router.push(rec.href)}
+                className="flex flex-col items-center gap-1.5 p-3 rounded-2xl bg-surface border border-mm-red/20 hover:border-mm-red/50 hover:bg-mm-red/5 transition-all text-center group"
+              >
+                <span className="text-2xl">{rec.emoji}</span>
+                <p className="text-[11px] font-semibold text-[var(--text)] group-hover:text-mm-red transition-colors leading-tight">{rec.label}</p>
+                <p className="text-[9px] text-[var(--text-muted)] leading-tight">{rec.why}</p>
+              </button>
+            ))}
+          </div>
+        </motion.div>
+      )}
 
       {sections.length === 0 && (
         <p className="text-center py-10 text-[var(--text-muted)]">

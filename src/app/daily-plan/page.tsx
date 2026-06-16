@@ -13,10 +13,12 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   CheckCircle2, Circle, Flame, Clock, Sparkles, ChevronRight,
   BookOpen, Mic, Wand2, MessageCircle, Brain, Trophy, Star, Zap, RotateCcw, Layers, Music,
+  BellRing, X,
 } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
 import { cn } from "@/lib/utils";
 import { readJSON, writeJSON } from "@/lib/utils";
+import { usePushNotification } from "@/hooks/usePushNotification";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -308,6 +310,91 @@ export default function DailyPlanPage() {
           ))}
         </div>
       </div>
+
+      {/* Push notification prompt */}
+      <PushPrompt />
     </main>
+  );
+}
+
+// ─── PushPrompt — gợi ý bật thông báo nhắc học ───────────────────────────────
+
+function PushPrompt() {
+  const { supported, subscribed, loading, subscribe } = usePushNotification();
+  const [dismissed, setDismissed] = useState(true); // bắt đầu ẩn để tránh flash
+  const [done, setDone] = useState(false);
+
+  useEffect(() => {
+    // Chỉ show khi chưa dismiss và chưa đăng ký
+    const wasDismissed = localStorage.getItem("mm_notif_prompt_dismissed") === "1";
+    setDismissed(wasDismissed);
+  }, []);
+
+  if (!supported || subscribed || dismissed || done) return null;
+
+  const handleSubscribe = async () => {
+    const ok = await subscribe();
+    if (ok) setDone(true);
+    else setDismissed(true); // permission denied → ẩn luôn
+  };
+
+  const handleDismiss = () => {
+    localStorage.setItem("mm_notif_prompt_dismissed", "1");
+    setDismissed(true);
+  };
+
+  return (
+    <AnimatePresence>
+      {!dismissed && !done && (
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: 8 }}
+          className="mt-4 rounded-2xl border border-[#E8504A]/25 bg-gradient-to-r from-[#E8504A]/10 to-[#D4AF37]/5 p-4"
+        >
+          <div className="flex items-start gap-3">
+            <div className="w-9 h-9 rounded-xl bg-[#E8504A]/15 flex items-center justify-center shrink-0">
+              <BellRing size={18} className="text-[#E8504A]" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold mb-0.5">Bật thông báo nhắc học? 🔔</p>
+              <p className="text-xs text-[var(--text-muted)] leading-relaxed">
+                MandoMood sẽ nhắc bạn học đúng giờ mỗi ngày và báo khi thẻ flashcard sắp quên.
+              </p>
+              <div className="flex gap-2 mt-3">
+                <button
+                  onClick={handleSubscribe}
+                  disabled={loading}
+                  className={cn(
+                    "flex-1 py-2 rounded-xl text-xs font-semibold text-white transition-colors",
+                    loading ? "bg-[#E8504A]/60" : "bg-[#E8504A] hover:bg-[#d43f39]"
+                  )}
+                >
+                  {loading ? "Đang bật..." : "Bật thông báo"}
+                </button>
+                <button
+                  onClick={handleDismiss}
+                  className="px-3 py-2 rounded-xl text-xs text-[var(--text-muted)] bg-[rgba(255,255,255,0.05)] hover:bg-[rgba(255,255,255,0.1)] transition-colors"
+                >
+                  Để sau
+                </button>
+              </div>
+            </div>
+            <button onClick={handleDismiss} aria-label="Đóng" className="text-[var(--text-muted)] hover:text-white transition-colors">
+              <X size={14} />
+            </button>
+          </div>
+        </motion.div>
+      )}
+      {done && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="mt-4 rounded-2xl border border-green-500/30 bg-green-500/10 p-3 text-center text-sm text-green-300"
+        >
+          ✅ Đã bật thông báo — MandoMood sẽ nhắc bạn học mỗi ngày!
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 }

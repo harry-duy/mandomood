@@ -172,6 +172,12 @@ export default function AboutPage() {
               Khám phá bộ sưu tập chữ Hán →
             </button>
           </Link>
+          <Link
+            href="/mandomood-vs-duolingo"
+            className="block text-center text-xs text-[var(--text-muted)] hover:text-mm-red transition-colors pt-1"
+          >
+            MandoMood khác Duolingo thế nào? →
+          </Link>
         </motion.div>
       </div>
     </main>

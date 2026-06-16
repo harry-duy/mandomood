@@ -48,6 +48,11 @@ export default function HanziTracer({ hanzi, size = 220, onComplete }: HanziTrac
         setMistakes(0);
         setDone(false);
 
+        // Outline phải tương phản với nền canvas theo theme:
+        // dark → nền tối, outline trắng mờ; light → nền trắng, outline đen mờ.
+        const isLight = document.documentElement.getAttribute("data-theme") === "light";
+        const outlineColor = isLight ? "rgba(0,0,0,0.22)" : "rgba(255,255,255,0.18)";
+
         const writer = HanziWriter.create(containerRef.current, hanzi, {
           width: size,
           height: size,
@@ -55,7 +60,7 @@ export default function HanziTracer({ hanzi, size = 220, onComplete }: HanziTrac
           showOutline: true,
           showCharacter: false,
           strokeColor: "#E8504A",
-          outlineColor: "rgba(255,255,255,0.18)",
+          outlineColor,
           drawingColor: "#E8504A",
           highlightColor: "#E8A838",
           showHintAfterMisses: 3,
@@ -115,7 +120,7 @@ export default function HanziTracer({ hanzi, size = 220, onComplete }: HanziTrac
     <div className="flex flex-col items-center gap-3">
       <div
         className="relative rounded-2xl border-2 overflow-hidden flex items-center justify-center"
-        style={{ width: size, height: size, borderColor: done ? "#4ade80" : "rgba(255,255,255,0.1)", background: "#111111" }}
+        style={{ width: size, height: size, borderColor: done ? "#4ade80" : "var(--border)", background: "var(--bg-card)" }}
       >
         {/* 田字格 guide */}
         <div className="absolute inset-0 pointer-events-none">

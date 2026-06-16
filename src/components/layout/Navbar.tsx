@@ -64,6 +64,7 @@ export default function Navbar() {
         {/* Notification — chỉ show khi đã login */}
         {user && (
           <button
+            onClick={() => router.push("/notifications")}
             className="w-9 h-9 rounded-full bg-[#242424] flex items-center justify-center text-[#8A8078] hover:text-white transition-colors relative"
             aria-label="Thông báo"
           >

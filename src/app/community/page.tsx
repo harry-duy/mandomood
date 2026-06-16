@@ -21,6 +21,7 @@ import { cn } from "@/lib/utils";
 import CommentSection from "@/components/ui/CommentSection";
 import { MOOD_COLORS, MOOD_EMOJI, MOOD_LABEL, LEVEL_LABEL } from "@/lib/utils";
 import { useTTS } from "@/hooks/useTTS";
+import { useProgress } from "@/hooks/useProgress";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface Post {
@@ -240,6 +241,7 @@ function PostCard({ post, myEmail, onLike }: {
 function PostForm({ onPosted }: { onPosted: (post: Post) => void }) {
   const { data: session } = useSession();
   const router = useRouter();
+  const { awardXP } = useProgress();
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState({
@@ -264,7 +266,8 @@ function PostForm({ onPosted }: { onPosted: (post: Post) => void }) {
       onPosted(data.post!);
       setForm({ chinese_text: "", pinyin: "", translation: "", mood: "aesthetic", level: "hsk2", type: "quote" });
       setOpen(false);
-      toast("Đã đăng! 🎉");
+      awardXP(10, "community_post");
+      toast("Đã đăng! 🎉 +10 XP");
     } catch (e) {
       toast((e as Error).message ?? "Lỗi đăng bài");
     } finally {
@@ -435,26 +438,53 @@ export default function CommunityPage() {
   const { data: session } = useSession();
   const [posts, setPosts] = useState<Post[]>(DEMO_POSTS);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [sort, setSort] = useState<"new" | "hot">("new");
   const [moodFilter, setMoodFilter] = useState("all");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [hasMore, setHasMore] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
+    setCurrentPage(1);
     try {
-      const params = new URLSearchParams({ sort, mood: moodFilter });
+      const params = new URLSearchParams({ sort, mood: moodFilter, page: "1" });
       const res = await fetch(`/api/community/posts?${params}`);
       const data = await res.json() as { posts?: Post[] };
       if (data.posts && data.posts.length > 0) {
         setPosts(data.posts);
+        setHasMore(data.posts.length === 20); // API limit = 20
       } else {
         setPosts(DEMO_POSTS);
+        setHasMore(false);
       }
     } catch {
       setPosts(DEMO_POSTS);
+      setHasMore(false);
     } finally {
       setLoading(false);
     }
   }, [sort, moodFilter]);
+
+  const loadMore = useCallback(async () => {
+    if (loadingMore) return;
+    setLoadingMore(true);
+    const nextPage = currentPage + 1;
+    try {
+      const params = new URLSearchParams({ sort, mood: moodFilter, page: String(nextPage) });
+      const res = await fetch(`/api/community/posts?${params}`);
+      const data = await res.json() as { posts?: Post[] };
+      if (data.posts && data.posts.length > 0) {
+        setPosts(prev => [...prev, ...data.posts!]);
+        setCurrentPage(nextPage);
+        setHasMore(data.posts.length === 20);
+      } else {
+        setHasMore(false);
+      }
+    } catch { /* non-critical */ } finally {
+      setLoadingMore(false);
+    }
+  }, [loadingMore, currentPage, sort, moodFilter]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -573,6 +603,17 @@ export default function CommunityPage() {
               Hãy là người đầu tiên chia sẻ!
             </p>
           </div>
+        )}
+
+        {/* Load more */}
+        {!loading && hasMore && (
+          <button
+            onClick={() => void loadMore()}
+            disabled={loadingMore}
+            className="w-full py-3 mt-2 rounded-2xl border border-[rgba(255,255,255,0.10)] text-sm font-medium text-[var(--mm-muted)] hover:text-[var(--mm-text)] hover:border-[rgba(255,255,255,0.2)] transition-all disabled:opacity-50"
+          >
+            {loadingMore ? "Đang tải..." : "Xem thêm bài viết ↓"}
+          </button>
         )}
       </div>
     </main>

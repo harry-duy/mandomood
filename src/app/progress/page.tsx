@@ -12,13 +12,16 @@
 
 import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
-import { Sparkles, Flame, BookOpen, ArrowRight, Layers, Bookmark, Zap, Star } from "lucide-react";
+import { Sparkles, Flame, BookOpen, ArrowRight, Layers, Bookmark, Zap, Star, TrendingUp } from "lucide-react";
 import { readJSON } from "@/lib/utils";
 import BadgeGrid from "@/components/ui/BadgeGrid";
+import SkillRadar from "@/components/ui/SkillRadar";
 import { getDecks, getDueCards } from "@/lib/customDecks";
 import { getSavedWords } from "@/lib/savedWords";
 import { getTestHistory, summarizeTests, pctOf, type TestResult } from "@/lib/testHistory";
 import { useProgress } from "@/hooks/useProgress";
+import { computeSkillScores, SKILL_LABELS, overallScore, weakestSkill } from "@/lib/skillScores";
+import { getPersonalizedMilestones, getMotivationalMessage } from "@/lib/learningPath";
 
 interface HistoryItem {
   id: string;
@@ -79,9 +82,15 @@ function dayKey(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
+// Server trả về level theo ngưỡng XP: beginner → hsk1 → hsk2 → ... → hsk6
 const LEVEL_LABELS: Record<string, string> = {
-  beginner: "Người mới", elementary: "Cơ bản", intermediate: "Trung cấp",
-  advanced: "Nâng cao", expert: "Chuyên gia",
+  beginner: "Mới bắt đầu",
+  hsk1: "HSK 1 · 好奇",
+  hsk2: "HSK 2 · 迷恋",
+  hsk3: "HSK 3 · 心动",
+  hsk4: "HSK 4 · 相知",
+  hsk5: "HSK 5 · 深情",
+  hsk6: "HSK 6 · 灵魂",
 };
 
 export default function ProgressPage() {
@@ -90,12 +99,14 @@ export default function ProgressPage() {
   const [review, setReview] = useState<ReviewStats | null>(null);
   const [tests, setTests] = useState<TestResult[]>([]);
   const [planDays, setPlanDays] = useState<string[]>([]);
+  const [skillScores, setSkillScores] = useState({ vocab: 0, listening: 0, speaking: 0, reading: 0, writing: 0 });
 
   useEffect(() => {
     setTests(getTestHistory());
     setHistory(loadHistory());
     setPlanDays(loadDailyPlanDays());
     setReview(loadReviewStats());
+    setSkillScores(computeSkillScores());
   }, []);
 
   const stats = useMemo(() => {
@@ -183,6 +194,96 @@ export default function ProgressPage() {
           </div>
         </div>
       )}
+
+      {/* ── Phân tích kỹ năng ── */}
+      {(() => {
+        const overall = overallScore(skillScores);
+        const weak = weakestSkill(skillScores);
+        const milestones = getPersonalizedMilestones(skillScores);
+        const hasData = overall > 0;
+        return (
+          <div className="rounded-2xl bg-surface border border-[rgba(255,255,255,0.07)] p-4 mb-6">
+            <div className="flex items-center gap-2 mb-3">
+              <TrendingUp size={14} className="text-mm-red" />
+              <p className="text-xs text-[var(--text-muted)] uppercase tracking-widest">Phân tích kỹ năng</p>
+            </div>
+
+            <div className="flex flex-col items-center mb-4">
+              <SkillRadar scores={skillScores} size={200} animated />
+              <p className="mt-2 text-xs text-center text-[var(--text-muted)]">
+                {getMotivationalMessage(overall)}
+              </p>
+            </div>
+
+            {/* Thanh kỹ năng chi tiết */}
+            <div className="space-y-2 mb-4">
+              {SKILL_LABELS.map((sk) => {
+                const s = skillScores[sk.key];
+                return (
+                  <div key={sk.key} className="flex items-center gap-2">
+                    <span className="text-base w-6 shrink-0">{sk.emoji}</span>
+                    <span className="text-[11px] w-16 shrink-0 text-[var(--text-muted)]">{sk.label}</span>
+                    <div className="flex-1 h-2 rounded-full bg-surface2 overflow-hidden">
+                      <div
+                        className="h-full rounded-full transition-all duration-700"
+                        style={{ width: `${s}%`, backgroundColor: sk.color }}
+                      />
+                    </div>
+                    <span className="text-[11px] w-8 text-right" style={{ color: s > 0 ? sk.color : "var(--text-muted)" }}>
+                      {s > 0 ? `${s}` : "—"}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Gợi ý cá nhân hoá */}
+            {hasData && milestones.length > 0 && (
+              <div>
+                <p className="text-[10px] text-[var(--text-muted)] uppercase tracking-widest mb-2">
+                  Bước tiếp theo của bạn
+                </p>
+                <div className="space-y-1.5">
+                  {milestones.map((m) => (
+                    <Link
+                      key={m.id}
+                      href={m.href}
+                      className="flex items-start gap-2.5 p-2.5 rounded-xl bg-surface hover:bg-surface2 transition-colors group"
+                    >
+                      <span className="text-lg shrink-0 mt-0.5">{m.emoji}</span>
+                      <div className="min-w-0">
+                        <p className="text-[12px] font-semibold leading-tight group-hover:text-mm-gold transition-colors">
+                          {m.title}
+                        </p>
+                        <p className="text-[10px] text-[var(--text-muted)] leading-tight mt-0.5">
+                          {m.desc}
+                        </p>
+                      </div>
+                      {m.priority === "high" && (
+                        <span className="shrink-0 text-[9px] px-1.5 py-0.5 rounded-full bg-mm-red/20 text-mm-red font-semibold ml-auto">
+                          ưu tiên
+                        </span>
+                      )}
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {!hasData && (
+              <p className="text-xs text-center text-[var(--text-muted)] py-2">
+                Học thêm một chút để thấy phân tích kỹ năng của bạn ✨
+              </p>
+            )}
+
+            {hasData && (
+              <Link href="/lo-trinh" className="mt-3 inline-flex items-center gap-1 text-xs text-mm-gold hover:underline">
+                Xem lộ trình cá nhân hoá →
+              </Link>
+            )}
+          </div>
+        );
+      })()}
 
       {/* Stat cards */}
       <div className="grid grid-cols-3 gap-2 mb-6">

@@ -8,21 +8,24 @@
  * - Saved quotes tab (real API via useSavedQuotes)
  */
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   BookOpen, Flame, Star, Heart,
   Settings, LogIn, ChevronRight, Zap, Trophy,
-  HeartOff, ExternalLink
+  HeartOff, ExternalLink, MapPin
 } from "lucide-react";
 import { useSession, signIn } from "next-auth/react";
 import SyncButton from "@/components/ui/SyncButton";
 import SubscriptionCard from "@/components/ui/SubscriptionCard";
+import SkillRadar from "@/components/ui/SkillRadar";
 import { useAppStore } from "@/store/useAppStore";
 import { useProgress } from "@/hooks/useProgress";
 import { useSavedQuotes } from "@/hooks/useSavedQuotes";
 import { cn } from "@/lib/utils";
+import { computeSkillScores, overallScore, weakestSkill, levelFromScore, type SkillScores } from "@/lib/skillScores";
 import Image from "next/image";
 
 // ─── Level config ─────────────────────────────────────────────────────────────
@@ -126,7 +129,7 @@ function SavedQuoteCard({
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.9 }}
       className="rounded-2xl p-4 relative"
-      style={{ background: "#141414", border: "1px solid rgba(255,255,255,0.06)" }}
+      style={{ background: "var(--bg-card)", border: "1px solid rgba(255,255,255,0.06)" }}
     >
       {/* Mood dot */}
       <div className="flex items-center gap-2 mb-2">
@@ -181,6 +184,11 @@ export default function ProfilePage() {
   const { stats, loading: progressLoading } = useProgress();
   const { quotes: savedQuotes, count: savedCount, loading: savesLoading, toggleSave } = useSavedQuotes();
   const [showSaved, setShowSaved] = useState(false);
+  const [skillScores, setSkillScores] = useState<SkillScores>({ vocab: 0, listening: 0, speaking: 0, reading: 0, writing: 0 });
+
+  useEffect(() => {
+    setSkillScores(computeSkillScores());
+  }, []);
 
   const user = session?.user;
   const isLoggedIn = !!user;
@@ -414,6 +422,43 @@ export default function ProfilePage() {
         )}
       </AnimatePresence>
 
+      {/* ── Skill Radar ── */}
+      <motion.div
+        initial={{ opacity: 0, y: 15 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.16 }}
+        className="rounded-2xl bg-[#141414] p-4 mb-4"
+        style={{ border: "1px solid rgba(255,255,255,0.06)" }}
+      >
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <MapPin size={14} className="text-mm-red" />
+            <p className="text-xs text-[#8A8078] uppercase tracking-widest font-semibold">Kỹ năng của bạn</p>
+          </div>
+          <Link href="/lo-trinh" className="text-[10px] text-mm-gold hover:underline">
+            Xem lộ trình →
+          </Link>
+        </div>
+        <div className="flex items-center gap-4">
+          <SkillRadar scores={skillScores} size={140} animated />
+          <div className="flex-1">
+            <p className="text-[10px] text-[#8A8078] mb-0.5">Trình độ tổng hợp</p>
+            <p className="text-base font-bold text-mm-gold mb-2">{levelFromScore(overallScore(skillScores))}</p>
+            {overallScore(skillScores) > 0 && (
+              <div className="text-[10px] text-[#8A8078]">
+                Cần rèn: <span className="text-mm-red font-semibold">{weakestSkill(skillScores).label}</span>
+              </div>
+            )}
+            <Link
+              href="/lo-trinh"
+              className="mt-3 inline-flex items-center gap-1 text-[10px] px-2.5 py-1.5 rounded-lg bg-mm-red/15 text-mm-red hover:bg-mm-red/25 transition-colors font-semibold"
+            >
+              Xem lộ trình cá nhân 🗺️
+            </Link>
+          </div>
+        </div>
+      </motion.div>
+
       {/* ── Achievements ── */}
       {isLoggedIn && (
         <motion.div
@@ -463,6 +508,7 @@ export default function ProfilePage() {
         style={{ border: "1px solid rgba(255,255,255,0.06)" }}
       >
         {[
+          { label: "Lộ trình cá nhân", href: "/lo-trinh", emoji: "🗺️", sub: "Radar kỹ năng · Bước tiếp theo" },
           { label: "Báo cáo học tập", href: "/profile/report", emoji: "📊", sub: "XP · Streak · Badges" },
           { label: "Khám phá quotes mới", href: "/feed", emoji: "✨", sub: "Feed hôm nay" },
           { label: "Tạo story AI", href: "/generate", emoji: "🤖", sub: "Cá nhân hóa" },

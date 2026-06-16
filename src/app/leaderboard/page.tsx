@@ -8,7 +8,7 @@
 
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Trophy, Flame, Zap, Crown, Star, TrendingUp } from "lucide-react";
+import { Trophy, Flame, Zap, Crown, Star, TrendingUp, GraduationCap } from "lucide-react";
 import Image from "next/image";
 import { useSession } from "next-auth/react";
 import { cn } from "@/lib/utils";
@@ -32,17 +32,19 @@ const LEVEL_EMOJI: Record<string, string> = {
 
 // Demo data khi chưa có DB
 const DEMO_USERS: LeaderUser[] = [
-  { rank: 1, name: "Hana 花花", image: null, xp: 4820, weekly_xp: 840, streak: 47, level: "hsk4" },
-  { rank: 2, name: "Minh Tuấn", image: null, xp: 3600, weekly_xp: 720, streak: 33, level: "hsk3" },
-  { rank: 3, name: "Trà My 🌸", image: null, xp: 3100, weekly_xp: 690, streak: 28, level: "hsk3" },
-  { rank: 4, name: "Kevin Hoàng", image: null, xp: 2750, weekly_xp: 540, streak: 14, level: "hsk2" },
-  { rank: 5, name: "Ngọc Ánh", image: null, xp: 2400, weekly_xp: 480, streak: 21, level: "hsk2" },
+  { rank: 1, name: "Hana 花花", image: null, xp: 4820, weekly_xp: 840, streak: 47, level: "hsk4", test_best_pct: 100, tests_taken: 12 },
+  { rank: 2, name: "Minh Tuấn", image: null, xp: 3600, weekly_xp: 720, streak: 33, level: "hsk3", test_best_pct: 90, tests_taken: 8 },
+  { rank: 3, name: "Trà My 🌸", image: null, xp: 3100, weekly_xp: 690, streak: 28, level: "hsk3", test_best_pct: 85, tests_taken: 6 },
+  { rank: 4, name: "Kevin Hoàng", image: null, xp: 2750, weekly_xp: 540, streak: 14, level: "hsk2", test_best_pct: 80, tests_taken: 5 },
+  { rank: 5, name: "Ngọc Ánh", image: null, xp: 2400, weekly_xp: 480, streak: 21, level: "hsk2", test_best_pct: 75, tests_taken: 4 },
   { rank: 6, name: "Ryan Phúc", image: null, xp: 2100, weekly_xp: 360, streak: 9, level: "hsk2" },
   { rank: 7, name: "Celine Nhi", image: null, xp: 1800, weekly_xp: 300, streak: 7, level: "hsk1" },
   { rank: 8, name: "Bảo Long", image: null, xp: 1500, weekly_xp: 240, streak: 5, level: "hsk1" },
   { rank: 9, name: "Phương Linh", image: null, xp: 1200, weekly_xp: 180, streak: 3, level: "hsk1" },
   { rank: 10, name: "Đức Anh", image: null, xp: 900, weekly_xp: 120, streak: 2, level: "beginner" },
 ];
+
+const DEMO_TEST_USERS: LeaderUser[] = DEMO_USERS.filter(u => (u.tests_taken ?? 0) > 0).map((u, i) => ({ ...u, rank: i + 1 }));
 
 function Avatar({ name, image, size = 44 }: { name: string; image: string | null; size?: number }) {
   if (image) {
@@ -71,7 +73,7 @@ function Avatar({ name, image, size = 44 }: { name: string; image: string | null
   );
 }
 
-function TopThreeCard({ user, period }: { user: LeaderUser; period: "weekly" | "alltime" }) {
+function TopThreeCard({ user, period }: { user: LeaderUser; period: "weekly" | "alltime" | "test" }) {
   const medals = ["🥇","🥈","🥉"];
   const sizes = [64, 52, 52];
   const offsets = ["", "mt-6", "mt-6"];
@@ -96,16 +98,25 @@ function TopThreeCard({ user, period }: { user: LeaderUser; period: "weekly" | "
       <p className="text-xs font-semibold text-center leading-tight max-w-[70px] truncate" style={{ color: "var(--mm-text)" }}>
         {user.name}
       </p>
-      <div className="flex items-center gap-1 bg-yellow-500/10 rounded-full px-2 py-0.5">
-        <Zap className="w-3 h-3 text-yellow-500" />
-        <span className="text-xs font-bold text-yellow-500">{xpToShow.toLocaleString()}</span>
-      </div>
+      {period === "test" ? (
+        <div className="flex items-center gap-1 bg-blue-500/10 rounded-full px-2 py-0.5">
+          <GraduationCap className="w-3 h-3 text-blue-400" />
+          <span className={(user.test_best_pct ?? 0) >= 100 ? "text-xs font-bold text-green-400" : "text-xs font-bold text-blue-400"}>
+            {user.test_best_pct ?? 0}%
+          </span>
+        </div>
+      ) : (
+        <div className="flex items-center gap-1 bg-yellow-500/10 rounded-full px-2 py-0.5">
+          <Zap className="w-3 h-3 text-yellow-500" />
+          <span className="text-xs font-bold text-yellow-500">{xpToShow.toLocaleString()}</span>
+        </div>
+      )}
       <span className="text-xs opacity-60">{LEVEL_EMOJI[user.level]} {user.level.toUpperCase()}</span>
     </motion.div>
   );
 }
 
-function RankRow({ user, period, isMe }: { user: LeaderUser; period: "weekly" | "alltime"; isMe?: boolean }) {
+function RankRow({ user, period, isMe }: { user: LeaderUser; period: "weekly" | "alltime" | "test"; isMe?: boolean }) {
   const xpToShow = period === "weekly" ? user.weekly_xp : user.xp;
   return (
     <motion.div
@@ -156,18 +167,30 @@ function RankRow({ user, period, isMe }: { user: LeaderUser; period: "weekly" | 
         </div>
       )}
 
-      {/* XP */}
-      <div className="flex items-center gap-1">
-        <Zap className="w-3.5 h-3.5 text-yellow-500" />
-        <span className="text-sm font-bold text-yellow-500">{xpToShow.toLocaleString()}</span>
-      </div>
+      {/* Score: XP hoặc điểm thi */}
+      {period === "test" ? (
+        <div className="flex flex-col items-end gap-0.5">
+          <div className="flex items-center gap-1">
+            <GraduationCap className="w-3.5 h-3.5 text-blue-400" />
+            <span className={(user.test_best_pct ?? 0) >= 100 ? "text-sm font-bold text-green-400" : "text-sm font-bold text-blue-400"}>
+              {user.test_best_pct ?? 0}%
+            </span>
+          </div>
+          <span className="text-[10px] opacity-40">{user.tests_taken ?? 0} lần thi</span>
+        </div>
+      ) : (
+        <div className="flex items-center gap-1">
+          <Zap className="w-3.5 h-3.5 text-yellow-500" />
+          <span className="text-sm font-bold text-yellow-500">{xpToShow.toLocaleString()}</span>
+        </div>
+      )}
     </motion.div>
   );
 }
 
 export default function LeaderboardPage() {
   const { data: session } = useSession();
-  const [period, setPeriod] = useState<"weekly" | "alltime">("weekly");
+  const [period, setPeriod] = useState<"weekly" | "alltime" | "test">("weekly");
   const [users, setUsers] = useState<LeaderUser[]>(DEMO_USERS);
   const [loading, setLoading] = useState(true);
 
@@ -180,10 +203,10 @@ export default function LeaderboardPage() {
         if (data.users && data.users.length > 0) {
           setUsers(data.users);
         } else {
-          setUsers(DEMO_USERS);
+          setUsers(period === "test" ? DEMO_TEST_USERS : DEMO_USERS);
         }
       } catch {
-        setUsers(DEMO_USERS);
+        setUsers(period === "test" ? DEMO_TEST_USERS : DEMO_USERS);
       } finally {
         setLoading(false);
       }
@@ -206,7 +229,7 @@ export default function LeaderboardPage() {
           <Trophy className="w-6 h-6 text-yellow-500" />
           <h1 className="text-xl font-bold" style={{ color: "var(--mm-text)" }}>Bảng Xếp Hạng</h1>
           <div className="ml-auto flex gap-1 bg-white/5 rounded-full p-1">
-            {(["weekly","alltime"] as const).map(p => (
+            {(["weekly","alltime","test"] as const).map(p => (
               <button
                 key={p}
                 onClick={() => setPeriod(p)}
@@ -217,7 +240,7 @@ export default function LeaderboardPage() {
                     : "text-[var(--mm-muted)] hover:text-[var(--mm-text)]"
                 )}
               >
-                {p === "weekly" ? "Tuần này" : "All-time"}
+                {p === "weekly" ? "Tuần này" : p === "test" ? "🎓 Thi cử" : "All-time"}
               </button>
             ))}
           </div>
@@ -258,17 +281,25 @@ export default function LeaderboardPage() {
           </div>
         )}
 
+        {/* Tab Thi cử: note & empty state */}
+        {!loading && period === "test" && users.length === 0 && (
+          <div className="text-center py-10 opacity-60">
+            <GraduationCap className="w-10 h-10 mx-auto mb-2 text-blue-400" />
+            <p className="text-sm" style={{ color: "var(--mm-text)" }}>Chưa có ai thi — hãy là người đầu tiên! 🏁</p>
+            <a href="/test" className="mt-3 inline-block text-xs text-[var(--mm-red)] underline">Thi thử HSK ngay</a>
+          </div>
+        )}
+
         {/* Rank 4+ */}
-        {!loading && (
+        {!loading && users.length > 0 && (
           <AnimatePresence>
             <div className="space-y-2">
               {/* Header */}
               <div className="flex items-center gap-2 px-1 mb-3">
-                <TrendingUp className="w-4 h-4 text-[var(--mm-red)]" />
-                <span className="text-xs font-semibold uppercase tracking-wider opacity-60"
-                  style={{ color: "var(--mm-text)" }}>
-                  {period === "weekly" ? "XP tuần này" : "Tổng XP"}
-                </span>
+                {period === "test"
+                  ? <><GraduationCap className="w-4 h-4 text-blue-400" /><span className="text-xs font-semibold uppercase tracking-wider opacity-60" style={{ color: "var(--mm-text)" }}>Điểm thi cao nhất</span></>
+                  : <><TrendingUp className="w-4 h-4 text-[var(--mm-red)]" /><span className="text-xs font-semibold uppercase tracking-wider opacity-60" style={{ color: "var(--mm-text)" }}>{period === "weekly" ? "XP tuần này" : "Tổng XP"}</span></>
+                }
               </div>
               {rest.map(u => (
                 <RankRow
@@ -305,8 +336,8 @@ export default function LeaderboardPage() {
 
         {/* Weekly reset info */}
         <p className="text-center text-xs opacity-40 pb-4" style={{ color: "var(--mm-text)" }}>
-          {period === "weekly" ? "🔄 Reset mỗi thứ Hai • " : ""}
-          Top {users.length} người học tích cực nhất
+          {period === "weekly" ? "🔄 Reset mỗi thứ Hai • " : period === "test" ? "🎓 Xếp theo điểm thi cao nhất • " : ""}
+          Top {users.length} {period === "test" ? "người đã thi" : "người học tích cực nhất"}
         </p>
       </div>
     </main>

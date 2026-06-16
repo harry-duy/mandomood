@@ -12,8 +12,9 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Undo2, Eraser, Search, Loader2 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, readJSON, writeJSON } from "@/lib/utils";
 import { playTTS } from "@/hooks/useTTS";
+import { useProgress } from "@/hooks/useProgress";
 import {
   recognize,
   prepareReference,
@@ -42,6 +43,7 @@ export default function HandwritingPad() {
     return m;
   })[0];
 
+  const { awardXP } = useProgress();
   const [ready, setReady] = useState(false);
   const [loadPct, setLoadPct] = useState(0);
   const [loadError, setLoadError] = useState(false);
@@ -180,6 +182,15 @@ export default function HandwritingPad() {
     if (strokesRef.current.length === 0 || candidatesRef.current.length === 0) return;
     const res = recognize(strokesRef.current, candidatesRef.current, 8);
     setResults(res);
+    // Award 5 XP lần đầu nhận dạng mỗi ký tự (unique)
+    if (res.length > 0) {
+      const topChar = res[0].char;
+      const seen = readJSON<string[]>("mm_viet_tay_chars", []);
+      if (!seen.includes(topChar)) {
+        writeJSON("mm_viet_tay_chars", [...seen, topChar]);
+        awardXP(5, "complete_lesson");
+      }
+    }
   };
 
   return (

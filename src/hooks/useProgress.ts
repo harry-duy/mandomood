@@ -12,7 +12,21 @@
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { useAppStore } from "@/store/useAppStore";
+import { readJSON, writeJSON } from "@/lib/utils";
 import { toast } from "sonner";
+
+/** Ghi XP kiếm được hôm nay vào localStorage để DailyGoalRing đọc offline */
+function addTodayXP(xp: number) {
+  if (typeof localStorage === "undefined") return;
+  const now = new Date();
+  const key = `mm_xp_${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  const prev = readJSON<number>(key, 0);
+  writeJSON(key, prev + xp);
+  // Báo cho DailyGoalRing (và widget khác) cập nhật ngay, không cần reload trang
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent("mm:xp", { detail: { xp } }));
+  }
+}
 
 interface ProgressStats {
   xp: number;
@@ -66,6 +80,9 @@ export function useProgress() {
     xp: number,
     action: string = "complete_lesson"
   ): Promise<AwardResult | null> => {
+    // Ghi XP hôm nay vào localStorage (cả online lẫn offline)
+    addTodayXP(xp);
+
     // Nếu chưa login — chỉ update local store
     if (!session?.user) {
       setStats((s) => ({ ...s, xp: s.xp + xp }));
