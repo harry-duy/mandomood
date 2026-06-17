@@ -14,6 +14,7 @@ import {
   RotateCcw, BookOpen, Clipboard, Loader2, ArrowRight
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import QuotaBadge from "@/components/ui/QuotaBadge";
 import type { VocabItem, Exercise, AnalyzedContent, GradeResult } from "@/lib/openai";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -190,7 +191,7 @@ function ExerciseCard({
                   "py-2 px-3 rounded-xl text-sm text-left transition-all",
                   answer.value === opt
                     ? "bg-[#8A9DC9] text-[#0A0A0A] font-semibold"
-                    : "bg-[#1A1A1A] text-[#8A8078] hover:bg-[#242424] hover:text-white"
+                    : "bg-[#1A1A1A] text-[#8A8078] hover:bg-surface2 hover:text-white"
                 )}
                 style={{ border: answer.value === opt ? "none" : "1px solid rgba(255,255,255,0.06)" }}
               >
@@ -293,7 +294,7 @@ function UploadZone({ onFile }: { onFile: (f: File) => void }) {
         "relative rounded-3xl p-8 text-center cursor-pointer transition-all",
         dragging
           ? "border-[#8A9DC9] bg-[rgba(138,157,201,0.06)]"
-          : "border-[rgba(255,255,255,0.08)] bg-[#141414] hover:border-[rgba(255,255,255,0.15)] hover:bg-[#1A1A1A]"
+          : "border-[rgba(255,255,255,0.08)] bg-[#141414] hover:border-[rgba(255,255,255,0.15)] hover:bg-surface"
       )}
       style={{ border: `2px dashed ${dragging ? "#8A9DC9" : "rgba(255,255,255,0.08)"}` }}
     >
@@ -519,6 +520,10 @@ export default function SmartLessonPage() {
               <PasteZone onText={handleText} />
             )}
 
+            <div className="mt-3">
+              <QuotaBadge feature="upload" />
+            </div>
+
             {error && (
               <motion.div
                 initial={{ opacity: 0 }}
@@ -627,7 +632,7 @@ export default function SmartLessonPage() {
                 ))}
                 <button
                   onClick={() => setActiveSection("exercises")}
-                  className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl text-sm font-semibold text-[#8A9DC9] hover:bg-[#141414] transition-colors mt-2"
+                  className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl text-sm font-semibold text-[#8A9DC9] hover:bg-surface transition-colors mt-2"
                   style={{ border: "1px solid rgba(138,157,201,0.2)" }}
                 >
                   Sang bài tập <ArrowRight size={14} />

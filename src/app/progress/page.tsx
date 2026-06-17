@@ -380,17 +380,17 @@ export default function ProgressPage() {
             Ôn tập &amp; từ vựng
           </p>
           <div className="grid grid-cols-3 gap-2">
-            <Link href="/my-decks" className="rounded-xl bg-surface2/60 p-3 text-center hover:bg-surface2 transition-colors">
+            <Link href="/my-decks" className="rounded-xl bg-surface2 p-3 text-center hover:brightness-110 transition-all">
               <Flame size={16} className={`mx-auto mb-1 ${review.dueCards > 0 ? "text-mm-red" : "text-[var(--text-muted)]"}`} />
               <p className="text-xl font-bold">{review.dueCards}</p>
               <p className="text-[10px] text-[var(--text-muted)]">Thẻ đến hạn ôn</p>
             </Link>
-            <Link href="/my-decks" className="rounded-xl bg-surface2/60 p-3 text-center hover:bg-surface2 transition-colors">
+            <Link href="/my-decks" className="rounded-xl bg-surface2 p-3 text-center hover:brightness-110 transition-all">
               <Layers size={16} className="mx-auto mb-1 text-mm-gold" />
               <p className="text-xl font-bold">{review.totalCards}</p>
               <p className="text-[10px] text-[var(--text-muted)]">Thẻ flashcard</p>
             </Link>
-            <Link href="/so-tay" className="rounded-xl bg-surface2/60 p-3 text-center hover:bg-surface2 transition-colors">
+            <Link href="/so-tay" className="rounded-xl bg-surface2 p-3 text-center hover:brightness-110 transition-all">
               <Bookmark size={16} className="mx-auto mb-1 text-mm-red" />
               <p className="text-xl font-bold">{review.savedWords}</p>
               <p className="text-[10px] text-[var(--text-muted)]">Từ trong sổ tay</p>

@@ -302,7 +302,7 @@ export default function OnboardingPage() {
       {step === 0 && (
         <button
           onClick={handleFinish}
-          className="mt-3 text-xs text-[#8A8078] hover:text-[#F5F0EB] transition-colors"
+          className="mt-3 text-xs text-[#8A8078] hover:text-[var(--text)] transition-colors"
         >
           Bỏ qua
         </button>

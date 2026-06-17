@@ -41,7 +41,7 @@ export default function InstallAppMenuItem({ onDone }: { onDone?: () => void }) 
   return (
     <button
       onClick={handleClick}
-      className="w-full text-left flex items-center gap-2 px-4 py-2.5 text-sm text-[#F5F0EB] hover:bg-[#242424] transition-colors"
+      className="w-full text-left flex items-center gap-2 px-4 py-2.5 text-sm text-[#F5F0EB] hover:bg-surface2 transition-colors"
     >
       📲 Cài app vào máy
     </button>

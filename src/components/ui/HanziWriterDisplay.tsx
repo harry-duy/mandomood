@@ -160,7 +160,7 @@ export default function HanziWriterDisplay({
             isAnimating
               ? "bg-[rgba(232,80,74,0.15)] text-[#E8504A] cursor-wait"
               : loaded && !loadError
-              ? "bg-[#1A1A1A] text-[#8A8078] hover:text-white hover:bg-[#242424] border border-[rgba(255,255,255,0.08)]"
+              ? "bg-[#1A1A1A] text-[#8A8078] hover:text-white hover:bg-surface2 border border-[rgba(255,255,255,0.08)]"
               : "bg-[#1A1A1A] text-[#3A3A3A] cursor-not-allowed border border-[rgba(255,255,255,0.04)]"
           )}
         >

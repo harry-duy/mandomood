@@ -40,7 +40,7 @@ export default function SyncMenuItem({ onDone }: { onDone?: () => void }) {
     <button
       onClick={handle}
       disabled={busy}
-      className="w-full text-left flex items-center gap-2 px-4 py-2.5 text-sm text-[#F5F0EB] hover:bg-[#242424] transition-colors disabled:opacity-60"
+      className="w-full text-left flex items-center gap-2 px-4 py-2.5 text-sm text-[#F5F0EB] hover:bg-surface2 transition-colors disabled:opacity-60"
       aria-label={dirty ? "Đồng bộ ngay (có thay đổi chưa đồng bộ)" : "Đồng bộ ngay"}
     >
       <span className="relative">

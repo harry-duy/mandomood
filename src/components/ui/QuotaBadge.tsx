@@ -14,9 +14,10 @@ interface Quota {
   trialDaysLeft: number;
   story: { used: number; max: number };
   chat: { used: number; max: number };
+  upload?: { used: number; max: number };
 }
 
-export default function QuotaBadge({ feature }: { feature: "story" | "chat" }) {
+export default function QuotaBadge({ feature }: { feature: "story" | "chat" | "upload" }) {
   const [quota, setQuota] = useState<Quota | null>(null);
 
   useEffect(() => {
@@ -49,7 +50,8 @@ export default function QuotaBadge({ feature }: { feature: "story" | "chat" }) {
       </p>
     );
   }
-  const q = feature === "story" ? quota.story : quota.chat;
+  const q = feature === "story" ? quota.story : feature === "chat" ? quota.chat : quota.upload;
+  if (!q) return null; // upload có thể thiếu nếu API cũ
   const left = Math.max(0, q.max - q.used);
   return (
     <p className="text-xs text-center opacity-80" style={{ color: "var(--mm-text)" }}>

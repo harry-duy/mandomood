@@ -268,7 +268,7 @@ export default function DailyPlanPage() {
               {!done && (
                 <Link
                   href={task.href}
-                  className="shrink-0 w-8 h-8 rounded-lg bg-[#242424] flex items-center justify-center text-[#8A8078] hover:text-white hover:bg-[#2A2A2A] transition-colors"
+                  className="shrink-0 w-8 h-8 rounded-lg bg-[#242424] flex items-center justify-center text-[#8A8078] hover:text-white hover:bg-surface2 transition-colors"
                   aria-label={`Đến ${task.label}`}
                 >
                   <ChevronRight size={14} />
@@ -302,7 +302,7 @@ export default function DailyPlanPage() {
             <Link
               key={l.href}
               href={l.href}
-              className="flex flex-col items-center gap-1 p-3 bg-[#1A1A1A] rounded-xl hover:bg-[#242424] transition-colors text-center"
+              className="flex flex-col items-center gap-1 p-3 bg-[#1A1A1A] rounded-xl hover:bg-surface2 transition-colors text-center"
             >
               <span className="text-xl">{l.emoji}</span>
               <span className="text-[10px] text-[var(--text-muted)]">{l.label}</span>

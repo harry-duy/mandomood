@@ -132,42 +132,42 @@ export default function Navbar() {
                 <div className="py-1 max-h-[70vh] overflow-y-auto">
                   {/* Hồ sơ */}
                   <Link href="/generate" onClick={() => setShowMenu(false)}
-                    className="flex items-center gap-2 px-4 py-2.5 text-sm text-[#F5F0EB] hover:bg-[#242424] transition-colors">
+                    className="flex items-center gap-2 px-4 py-2.5 text-sm text-[#F5F0EB] hover:bg-surface2 transition-colors">
                     ✨ Tạo truyện AI
                   </Link>
                   <Link href="/feed" onClick={() => setShowMenu(false)}
-                    className="flex items-center gap-2 px-4 py-2.5 text-sm text-[#F5F0EB] hover:bg-[#242424] transition-colors">
+                    className="flex items-center gap-2 px-4 py-2.5 text-sm text-[#F5F0EB] hover:bg-surface2 transition-colors">
                     📖 Feed bài học
                   </Link>
                   <Link href="/daily-plan" onClick={() => setShowMenu(false)}
-                    className="flex items-center gap-2 px-4 py-2.5 text-sm text-[#F5F0EB] hover:bg-[#242424] transition-colors">
+                    className="flex items-center gap-2 px-4 py-2.5 text-sm text-[#F5F0EB] hover:bg-surface2 transition-colors">
                     📋 Kế hoạch hôm nay
                   </Link>
                   <Link href="/karaoke" onClick={() => setShowMenu(false)}
-                    className="flex items-center gap-2 px-4 py-2.5 text-sm text-[#F5F0EB] hover:bg-[#242424] transition-colors">
+                    className="flex items-center gap-2 px-4 py-2.5 text-sm text-[#F5F0EB] hover:bg-surface2 transition-colors">
                     🎤 Karaoke luyện nghe & nói
                   </Link>
                   <Link href="/profile" onClick={() => setShowMenu(false)}
-                    className="flex items-center gap-2 px-4 py-2.5 text-sm text-[#F5F0EB] hover:bg-[#242424] transition-colors">
+                    className="flex items-center gap-2 px-4 py-2.5 text-sm text-[#F5F0EB] hover:bg-surface2 transition-colors">
                     👤 Hồ sơ của tôi
                   </Link>
                   <Link href="/profile/report" onClick={() => setShowMenu(false)}
-                    className="flex items-center gap-2 px-4 py-2.5 text-sm text-[#F5F0EB] hover:bg-[#242424] transition-colors">
+                    className="flex items-center gap-2 px-4 py-2.5 text-sm text-[#F5F0EB] hover:bg-surface2 transition-colors">
                     📊 Báo cáo học tập
                   </Link>
                   <Link href="/flashcards" onClick={() => setShowMenu(false)}
-                    className="flex items-center gap-2 px-4 py-2.5 text-sm text-[#F5F0EB] hover:bg-[#242424] transition-colors">
+                    className="flex items-center gap-2 px-4 py-2.5 text-sm text-[#F5F0EB] hover:bg-surface2 transition-colors">
                     🎴 Flashcard SRS
                   </Link>
                   {/* Divider */}
                   <div className="border-t border-[rgba(255,255,255,0.06)] my-1" />
                   {/* Khám phá — toàn bộ công cụ gom về 1 trang */}
                   <Link href="/explore" onClick={() => setShowMenu(false)}
-                    className="flex items-center gap-2 px-4 py-2.5 text-sm text-[#F5F0EB] hover:bg-[#242424] transition-colors">
+                    className="flex items-center gap-2 px-4 py-2.5 text-sm text-[#F5F0EB] hover:bg-surface2 transition-colors">
                     🧭 Khám phá công cụ
                   </Link>
                   <Link href="/ai-tutor" onClick={() => setShowMenu(false)}
-                    className="flex items-center gap-2 px-4 py-2.5 text-sm text-[#F5F0EB] hover:bg-[#242424] transition-colors">
+                    className="flex items-center gap-2 px-4 py-2.5 text-sm text-[#F5F0EB] hover:bg-surface2 transition-colors">
                     🤖 AI Gia sư
                   </Link>
                   {/* Divider */}
@@ -176,21 +176,28 @@ export default function Navbar() {
                   {user && <SyncMenuItem onDone={() => setShowMenu(false)} />}
                   {/* Other */}
                   <Link href="/pricing" onClick={() => setShowMenu(false)}
-                    className="flex items-center gap-2 px-4 py-2.5 text-sm text-[#E8A838] hover:bg-[#242424] transition-colors">
+                    className="flex items-center gap-2 px-4 py-2.5 text-sm text-[#E8A838] hover:bg-surface2 transition-colors">
                     💎 Nâng cấp Premium
                   </Link>
                   <Link href="/blog" onClick={() => setShowMenu(false)}
-                    className="flex items-center gap-2 px-4 py-2.5 text-sm text-[#F5F0EB] hover:bg-[#242424] transition-colors">
+                    className="flex items-center gap-2 px-4 py-2.5 text-sm text-[#F5F0EB] hover:bg-surface2 transition-colors">
                     📝 Blog học tiếng Trung
                   </Link>
                   <Link href="/about" onClick={() => setShowMenu(false)}
-                    className="flex items-center gap-2 px-4 py-2.5 text-sm text-[#F5F0EB] hover:bg-[#242424] transition-colors">
+                    className="flex items-center gap-2 px-4 py-2.5 text-sm text-[#F5F0EB] hover:bg-surface2 transition-colors">
                     🌸 Về MandoMood
                   </Link>
+                  {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                  {(user as any)?.is_admin && (
+                    <Link href="/admin" onClick={() => setShowMenu(false)}
+                      className="flex items-center gap-2 px-4 py-2.5 text-sm text-[#8A9DC9] hover:bg-surface2 transition-colors">
+                      🛡️ Bảng điều khiển Admin
+                    </Link>
+                  )}
                   {user && (
                   <button
                     onClick={() => { signOut({ callbackUrl: "/" }); setShowMenu(false); }}
-                    className="w-full text-left flex items-center gap-2 px-4 py-2.5 text-sm text-[#E8634A] hover:bg-[#242424] transition-colors">
+                    className="w-full text-left flex items-center gap-2 px-4 py-2.5 text-sm text-[#E8634A] hover:bg-surface2 transition-colors">
                     Đăng xuất
                   </button>
                   )}

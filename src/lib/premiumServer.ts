@@ -38,29 +38,41 @@ export async function getPremiumStatus(): Promise<PremiumStatus> {
  * Tiêu 1 lượt quota ngày của user free. Trả về allowed=false khi đã hết.
  * Reset tự nhiên khi sang ngày mới (so chuỗi YYYY-MM-DD, múi giờ UTC).
  */
+/** Map field quota → cột trên User doc. Thêm field mới chỉ cần khai báo ở đây. */
+const QUOTA_COLS = {
+  story: "ai_story_used",
+  chat: "ai_chat_used",
+  upload: "ai_upload_used",
+} as const;
+type QuotaField = keyof typeof QUOTA_COLS;
+type QuotaCol = (typeof QUOTA_COLS)[QuotaField];
+
 export async function consumeDailyQuota(
   email: string,
-  field: "story" | "chat",
+  field: QuotaField,
   max: number
 ): Promise<{ allowed: boolean; used: number; max: number }> {
   await connectDB();
   const today = new Date().toISOString().slice(0, 10);
-  const col = field === "story" ? "ai_story_used" : "ai_chat_used";
-  const other = field === "story" ? "ai_chat_used" : "ai_story_used";
+  const col = QUOTA_COLS[field];
+  const allCols = Object.values(QUOTA_COLS) as QuotaCol[];
 
   const u = await User.findOne({ email })
-    .select("ai_quota_date ai_story_used ai_chat_used")
-    .lean() as { ai_quota_date?: string; ai_story_used?: number; ai_chat_used?: number } | null;
+    .select(["ai_quota_date", ...allCols].join(" "))
+    .lean() as ({ ai_quota_date?: string } & Partial<Record<QuotaCol, number>>) | null;
 
   const sameDay = u?.ai_quota_date === today;
-  const used = sameDay ? (u?.[col as "ai_story_used" | "ai_chat_used"] ?? 0) : 0;
+  const used = sameDay ? (u?.[col] ?? 0) : 0;
   if (used >= max) return { allowed: false, used, max };
 
-  await User.updateOne(
-    { email },
-    sameDay
-      ? { $inc: { [col]: 1 } }
-      : { $set: { ai_quota_date: today, [other]: 0, [col]: 1 } }
-  );
+  if (sameDay) {
+    await User.updateOne({ email }, { $inc: { [col]: 1 } });
+  } else {
+    // Sang ngày mới: reset TẤT CẢ cột quota về 0, rồi đặt cột hiện tại = 1
+    const reset: Record<string, number | string> = { ai_quota_date: today };
+    for (const c of allCols) reset[c] = 0;
+    reset[col] = 1;
+    await User.updateOne({ email }, { $set: reset });
+  }
   return { allowed: true, used: used + 1, max };
 }

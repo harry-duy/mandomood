@@ -159,14 +159,14 @@ export default function HanziTracer({ hanzi, size = 220, onComplete }: HanziTrac
         <button
           onClick={showHint}
           disabled={!loaded || loadError}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium bg-[#1A1A1A] text-[#8A8078] hover:text-white hover:bg-[#242424] border border-[rgba(255,255,255,0.08)] transition-all disabled:opacity-30"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium bg-[#1A1A1A] text-[#8A8078] hover:text-white hover:bg-surface2 border border-[rgba(255,255,255,0.08)] transition-all disabled:opacity-30"
         >
           <Eye size={12} /> Gợi ý
         </button>
         <button
           onClick={restart}
           disabled={!loaded || loadError}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium bg-[#1A1A1A] text-[#8A8078] hover:text-white hover:bg-[#242424] border border-[rgba(255,255,255,0.08)] transition-all disabled:opacity-30"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium bg-[#1A1A1A] text-[#8A8078] hover:text-white hover:bg-surface2 border border-[rgba(255,255,255,0.08)] transition-all disabled:opacity-30"
         >
           <RotateCcw size={12} /> Làm lại
         </button>

@@ -8,6 +8,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { analyzeImageContent, analyzeTextContent } from "@/lib/openai";
 import { checkRateLimit, getRateLimitHeaders } from "@/lib/ratelimit";
+import { getPremiumStatus, consumeDailyQuota } from "@/lib/premiumServer";
+import { FREE_DAILY_UPLOAD } from "@/lib/premium";
 
 function buildFallbackLesson(text: string) {
   const source = text.trim() || "No readable text";
@@ -65,6 +67,20 @@ export async function POST(req: NextRequest) {
       { status: 429, headers: getRateLimitHeaders(ip, 5) }
     );
   }
+
+  // Premium/trial: không giới hạn. Free đã đăng nhập: FREE_DAILY_UPLOAD lượt quét/ngày
+  // (Vision là endpoint AI tốn kém nhất → bảo vệ chi phí, vẫn rộng rãi). Khách: chỉ giới hạn IP ở trên.
+  const { email, source } = await getPremiumStatus();
+  if (email && source === null) {
+    const quota = await consumeDailyQuota(email, "upload", FREE_DAILY_UPLOAD);
+    if (!quota.allowed) {
+      return NextResponse.json(
+        { error: `Bạn đã dùng hết ${FREE_DAILY_UPLOAD} lượt quét ảnh/tài liệu miễn phí hôm nay. Nâng cấp Premium để quét không giới hạn 👑` },
+        { status: 429 }
+      );
+    }
+  }
+
   let fallbackText = "";
 
   try {

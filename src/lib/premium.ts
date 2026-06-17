@@ -13,6 +13,8 @@ export const TRIAL_DAYS = 30;
 /** Giới hạn mỗi ngày cho tài khoản FREE (hết trial, chưa mua). */
 export const FREE_DAILY_STORY = 3;
 export const FREE_DAILY_CHAT = 10;
+/** Quét ảnh/tài liệu AI (smart-lesson) — Vision tốn kém nhất, để rộng rãi. */
+export const FREE_DAILY_UPLOAD = 5;
 
 export type PremiumSource = "paid" | "trial" | null;
 
@@ -64,4 +66,23 @@ export function daysLeft(until: Date | string | null | undefined, now: number = 
 /** Ngày hết trial cho tài khoản kích hoạt tại `now`. */
 export function trialEndDate(now: number = Date.now()): Date {
   return new Date(now + TRIAL_DAYS * 86_400_000);
+}
+
+/**
+ * Mốc hết hạn premium theo gói mua (dùng ở Stripe webhook checkout.completed).
+ *  - "yearly"  → +1 năm
+ *  - "lifetime"→ null (không hết hạn)
+ *  - "monthly" hoặc giá trị lạ → +1 tháng (mặc định an toàn về chi phí: cấp ngắn nhất)
+ * Trả Date hoặc null (lifetime).
+ */
+export function premiumUntilForPlan(plan: string, from: Date = new Date()): Date | null {
+  if (plan === "lifetime") return null;
+  const d = new Date(from);
+  if (plan === "yearly") {
+    d.setFullYear(d.getFullYear() + 1);
+  } else {
+    // monthly + fallback an toàn
+    d.setMonth(d.getMonth() + 1);
+  }
+  return d;
 }

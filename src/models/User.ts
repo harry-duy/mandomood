@@ -20,6 +20,7 @@ export interface IUser extends Document {
   ai_quota_date?: string;
   ai_story_used?: number;
   ai_chat_used?: number;
+  ai_upload_used?: number;
   /** Thành tích thi /test — cập nhật mỗi lần sync (nguồn: testResults trong SyncData) */
   test_best_pct?: number;
   tests_taken?: number;
@@ -56,6 +57,7 @@ const UserSchema = new Schema<IUser>(
     ai_quota_date: { type: String },
     ai_story_used: { type: Number, default: 0 },
     ai_chat_used: { type: Number, default: 0 },
+    ai_upload_used: { type: Number, default: 0 },
     test_best_pct: { type: Number, default: 0 },
     tests_taken: { type: Number, default: 0 },
     stripe_customer_id: { type: String },

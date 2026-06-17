@@ -9,6 +9,7 @@
 import { useEffect } from "react";
 import Link from "next/link";
 import { Home, RotateCcw } from "lucide-react";
+import { trackEvent } from "@/lib/analytics";
 
 export default function Error({
   error,
@@ -20,6 +21,11 @@ export default function Error({
   useEffect(() => {
     // Log để theo dõi (Vercel sẽ thu thập ở server logs / browser console)
     console.error("[MandoMood] Page error:", error);
+    // Beacon vào analytics (best-effort) → admin thấy "page_error" trong dashboard topEvents
+    try {
+      const path = typeof window !== "undefined" ? window.location.pathname : "";
+      trackEvent("page_error", path);
+    } catch { /* không bao giờ để tracking làm hỏng trang lỗi */ }
   }, [error]);
 
   return (

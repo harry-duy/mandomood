@@ -1,5 +1,5 @@
 /**
- * MandoMood Service Worker (v5)
+ * MandoMood Service Worker (v6)
  * - Push notification listener
  * - Offline cache (PWA)
  *   • Cache-first cho tài nguyên tĩnh (Next static, icons, fonts) → mở app nhanh, dùng offline.
@@ -8,16 +8,20 @@
  *   • KHÔNG cache API có dữ liệu người dùng (tránh rò rỉ dữ liệu giữa các tài khoản).
  */
 
-const CACHE_NAME = "mandomood-v5";
+const CACHE_NAME = "mandomood-v6";
 const OFFLINE_URLS = ["/", "/offline", "/feed", "/leaderboard", "/flashcards", "/luyen-viet", "/explore", "/dictation", "/my-decks", "/hsk", "/lo-trinh"];
 
 // Endpoint CÔNG KHAI an toàn để cache (không phụ thuộc đăng nhập)
 const PUBLIC_API = ["/api/quotes/daily", "/api/quotes", "/api/leaderboard"];
 
-// Install — precache offline pages
+// Install — precache offline pages.
+// Dùng allSettled + cache.add từng URL: nếu MỘT route lỗi (redirect/500/mạng) thì
+// SW VẪN cài được (khác cache.addAll() — atomic, 1 lỗi là hỏng toàn bộ install → mất offline).
 self.addEventListener("install", (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(OFFLINE_URLS))
+    caches.open(CACHE_NAME).then((cache) =>
+      Promise.allSettled(OFFLINE_URLS.map((u) => cache.add(u)))
+    )
   );
   self.skipWaiting();
 });

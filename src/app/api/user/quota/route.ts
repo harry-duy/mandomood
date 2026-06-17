@@ -7,7 +7,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-config";
 import { connectDB } from "@/lib/mongodb";
 import User from "@/models/User";
-import { premiumSource, daysLeft, FREE_DAILY_STORY, FREE_DAILY_CHAT } from "@/lib/premium";
+import { premiumSource, daysLeft, FREE_DAILY_STORY, FREE_DAILY_CHAT, FREE_DAILY_UPLOAD } from "@/lib/premium";
 
 export const dynamic = "force-dynamic";
 
@@ -22,16 +22,17 @@ export async function GET() {
     trialDaysLeft: 0,
     story: { used: 0, max: FREE_DAILY_STORY },
     chat: { used: 0, max: FREE_DAILY_CHAT },
+    upload: { used: 0, max: FREE_DAILY_UPLOAD },
   };
   if (!email) return NextResponse.json(base);
 
   try {
     await connectDB();
     const u = await User.findOne({ email })
-      .select("premium premium_until trial_until ai_quota_date ai_story_used ai_chat_used")
+      .select("premium premium_until trial_until ai_quota_date ai_story_used ai_chat_used ai_upload_used")
       .lean() as {
         premium?: boolean; premium_until?: Date; trial_until?: Date;
-        ai_quota_date?: string; ai_story_used?: number; ai_chat_used?: number;
+        ai_quota_date?: string; ai_story_used?: number; ai_chat_used?: number; ai_upload_used?: number;
       } | null;
     if (!u) return NextResponse.json({ ...base, loggedIn: true });
 
@@ -46,6 +47,7 @@ export async function GET() {
       trialUntil: source === "trial" ? (u.trial_until?.toISOString?.() ?? null) : null,
       story: { used: sameDay ? (u.ai_story_used ?? 0) : 0, max: FREE_DAILY_STORY },
       chat: { used: sameDay ? (u.ai_chat_used ?? 0) : 0, max: FREE_DAILY_CHAT },
+      upload: { used: sameDay ? (u.ai_upload_used ?? 0) : 0, max: FREE_DAILY_UPLOAD },
     });
   } catch (e) {
     console.error("[GET /api/user/quota]", e);

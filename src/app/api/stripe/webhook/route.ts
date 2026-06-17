@@ -8,6 +8,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
 import User from "@/models/User";
+import { premiumUntilForPlan } from "@/lib/premium";
 
 const WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET;
 
@@ -49,15 +50,8 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ received: true, duplicate: true });
       }
 
-      let premiumUntil: Date | null = null;
-      if (plan === "monthly") {
-        premiumUntil = new Date();
-        premiumUntil.setMonth(premiumUntil.getMonth() + 1);
-      } else if (plan === "yearly") {
-        premiumUntil = new Date();
-        premiumUntil.setFullYear(premiumUntil.getFullYear() + 1);
-      }
-      // lifetime: premiumUntil = null (no expiry)
+      // monthly → +1 tháng, yearly → +1 năm, lifetime → null (logic thuần, có unit test)
+      const premiumUntil: Date | null = premiumUntilForPlan(plan);
 
       await User.findOneAndUpdate(
         { email },

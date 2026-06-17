@@ -350,7 +350,7 @@ export default function ProfilePage() {
         {/* Saved — clickable, shows real count from API */}
         <button
           onClick={() => isLoggedIn && setShowSaved((v) => !v)}
-          className="rounded-2xl bg-[#141414] p-4 text-left hover:bg-[#1A1A1A] transition-colors"
+          className="rounded-2xl bg-[#141414] p-4 text-left hover:bg-surface transition-colors"
           style={{ border: `1px solid ${showSaved ? "rgba(201,135,138,0.3)" : "rgba(255,255,255,0.06)"}` }}
         >
           <p className="text-[10px] text-[#5A5450] uppercase tracking-wider mb-2">Đã lưu</p>
@@ -518,7 +518,7 @@ export default function ProfilePage() {
             key={href}
             onClick={() => router.push(href)}
             className={cn(
-              "w-full flex items-center gap-3 px-4 py-3.5 hover:bg-[#1A1A1A] transition-colors text-left",
+              "w-full flex items-center gap-3 px-4 py-3.5 hover:bg-surface transition-colors text-left",
               i < arr.length - 1 && "border-b border-[rgba(255,255,255,0.04)]"
             )}
           >
