@@ -34,10 +34,6 @@ export async function getPremiumStatus(): Promise<PremiumStatus> {
   }
 }
 
-/**
- * Tiêu 1 lượt quota ngày của user free. Trả về allowed=false khi đã hết.
- * Reset tự nhiên khi sang ngày mới (so chuỗi YYYY-MM-DD, múi giờ UTC).
- */
 /** Map field quota → cột trên User doc. Thêm field mới chỉ cần khai báo ở đây. */
 const QUOTA_COLS = {
   story: "ai_story_used",
@@ -47,6 +43,15 @@ const QUOTA_COLS = {
 type QuotaField = keyof typeof QUOTA_COLS;
 type QuotaCol = (typeof QUOTA_COLS)[QuotaField];
 
+/**
+ * Tiêu 1 lượt quota ngày của user free. Trả allowed=false khi đã hết.
+ * Reset tự nhiên khi sang ngày mới (so chuỗi YYYY-MM-DD theo UTC).
+ *
+ * NGUYÊN TỬ (chống vượt quota khi gọi AI song song): mỗi bước là 1
+ * `findOneAndUpdate` khoá document → điều kiện cap `[col] < max` được đánh giá
+ * và tăng trong cùng một thao tác, nên N request đồng thời KHÔNG cùng đọc used=0
+ * rồi vượt trần (trước đây read-modify-write rời rạc → lọt quota = rò rỉ chi phí).
+ */
 export async function consumeDailyQuota(
   email: string,
   field: QuotaField,
@@ -57,22 +62,56 @@ export async function consumeDailyQuota(
   const col = QUOTA_COLS[field];
   const allCols = Object.values(QUOTA_COLS) as QuotaCol[];
 
-  const u = await User.findOne({ email })
-    .select(["ai_quota_date", ...allCols].join(" "))
-    .lean() as ({ ai_quota_date?: string } & Partial<Record<QuotaCol, number>>) | null;
+  type Doc = Partial<Record<QuotaCol, number>> | null;
 
-  const sameDay = u?.ai_quota_date === today;
-  const used = sameDay ? (u?.[col] ?? 0) : 0;
-  if (used >= max) return { allowed: false, used, max };
+  // 1) Cùng ngày + còn dưới trần → tăng nguyên tử.
+  let doc = (await User.findOneAndUpdate(
+    { email, ai_quota_date: today, [col]: { $lt: max } },
+    { $inc: { [col]: 1 } },
+    { new: true }
+  ).select(col).lean()) as Doc;
+  if (doc) return { allowed: true, used: doc[col] ?? 1, max };
 
-  if (sameDay) {
-    await User.updateOne({ email }, { $inc: { [col]: 1 } });
-  } else {
-    // Sang ngày mới: reset TẤT CẢ cột quota về 0, rồi đặt cột hiện tại = 1
-    const reset: Record<string, number | string> = { ai_quota_date: today };
-    for (const c of allCols) reset[c] = 0;
-    reset[col] = 1;
-    await User.updateOne({ email }, { $set: reset });
+  // 2) Sang ngày mới (hoặc chưa từng đặt ngày) → reset hết cột + đặt cột này = 1.
+  //    Khoá document khiến chỉ MỘT request reset; các request mới-ngày khác sẽ
+  //    không còn khớp `$ne today` và rơi xuống bước 3.
+  const reset: Record<string, number | string> = { ai_quota_date: today };
+  for (const c of allCols) reset[c] = 0;
+  reset[col] = 1;
+  doc = (await User.findOneAndUpdate(
+    { email, ai_quota_date: { $ne: today } },
+    { $set: reset },
+    { new: true }
+  ).select(col).lean()) as Doc;
+  if (doc) return { allowed: true, used: doc[col] ?? 1, max };
+
+  // 3) Một request khác vừa reset sang hôm nay → thử lại nhánh tăng cùng ngày.
+  doc = (await User.findOneAndUpdate(
+    { email, ai_quota_date: today, [col]: { $lt: max } },
+    { $inc: { [col]: 1 } },
+    { new: true }
+  ).select(col).lean()) as Doc;
+  if (doc) return { allowed: true, used: doc[col] ?? 1, max };
+
+  // 4) Hết trần hôm nay (hoặc user không tồn tại) → chặn.
+  return { allowed: false, used: max, max };
+}
+
+/**
+ * Hoàn 1 lượt quota — gọi khi tác vụ AI THẤT BẠI sau khi đã trừ, để user free
+ * không mất lượt oan. Điều kiện đúng-ngày + cột > 0 đặt trong query nên nguyên
+ * tử (không bao giờ làm âm). Nuốt lỗi để việc hoàn không che lỗi gốc.
+ */
+export async function refundDailyQuota(email: string, field: QuotaField): Promise<void> {
+  try {
+    await connectDB();
+    const today = new Date().toISOString().slice(0, 10);
+    const col = QUOTA_COLS[field];
+    await User.updateOne(
+      { email, ai_quota_date: today, [col]: { $gt: 0 } },
+      { $inc: { [col]: -1 } }
+    );
+  } catch (e) {
+    console.error("[refundDailyQuota]", e);
   }
-  return { allowed: true, used: used + 1, max };
 }

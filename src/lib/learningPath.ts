@@ -5,8 +5,7 @@
  * yếu nhất và công cụ phù hợp nhất với người học.
  */
 
-import type { SkillScores } from "@/lib/skillScores";
-import { SKILL_LABELS } from "@/lib/skillScores";
+import { SKILL_LABELS, type SkillScores } from "@/lib/skillScores";
 
 export interface Milestone {
   id: string;

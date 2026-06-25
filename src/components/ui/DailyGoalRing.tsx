@@ -62,8 +62,8 @@ function computeLocalStreak(): number {
 function countDailyPlanDone(): number {
   const now = new Date();
   const key = `mm_daily_plan_${now.getFullYear()}_${now.getMonth() + 1}_${now.getDate()}`;
-  const plan = readJSON<{ checked: Record<string, boolean> }>(key, { checked: {} });
-  return Object.values(plan.checked || {}).filter(Boolean).length;
+  const plan = readJSON<Record<string, boolean>>(key, {});
+  return Object.values(plan).filter(Boolean).length;
 }
 
 const MESSAGES = {

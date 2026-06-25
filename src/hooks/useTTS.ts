@@ -12,14 +12,26 @@
 
 "use client";
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { useAppStore } from "@/store/useAppStore";
+
+// Giới hạn số blob audio cache để tránh rò rỉ bộ nhớ (mỗi object URL giữ 1 blob sống).
+const MAX_TTS_CACHE = 50;
 
 export function useTTS() {
   const [speaking, setSpeaking] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const blobCache = useRef<Map<string, string>>(new Map());
   const selectedVoice = useAppStore((s) => s.selectedVoice);
+
+  // Thu hồi mọi blob URL khi unmount — tránh rò rỉ bộ nhớ (object URL giữ blob audio sống).
+  useEffect(() => {
+    const cache = blobCache.current;
+    return () => {
+      cache.forEach((url) => URL.revokeObjectURL(url));
+      cache.clear();
+    };
+  }, []);
 
   const stopCurrent = useCallback(() => {
     if (audioRef.current) {
@@ -96,6 +108,12 @@ export function useTTS() {
             const blob = await res.blob();
             blobUrl = URL.createObjectURL(blob);
             blobCache.current.set(text, blobUrl);
+            // Cache vượt ngưỡng → thu hồi URL cũ nhất rồi xoá (LRU đơn giản theo thứ tự chèn).
+            if (blobCache.current.size > MAX_TTS_CACHE) {
+              const oldest = blobCache.current.keys().next().value;
+              const oldUrl = oldest ? blobCache.current.get(oldest) : undefined;
+              if (oldest && oldUrl) { URL.revokeObjectURL(oldUrl); blobCache.current.delete(oldest); }
+            }
           } else if (res.status === 503) {
             // ElevenLabs not configured — fallback silently
             throw new Error("no_elevenlabs");
@@ -132,7 +150,11 @@ export async function playTTS(text: string): Promise<void> {
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
       const audio = new Audio(url);
-      audio.play().catch(() => webSpeechFallback(text));
+      // Thu hồi blob URL sau khi phát xong/ lỗi — tránh rò rỉ bộ nhớ.
+      const cleanup = () => URL.revokeObjectURL(url);
+      audio.onended = cleanup;
+      audio.onerror = cleanup;
+      audio.play().catch(() => { cleanup(); webSpeechFallback(text); });
       return;
     }
   } catch {

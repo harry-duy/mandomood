@@ -6,6 +6,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
 import Lesson from "@/models/Lesson";
+import { parsePagination } from "@/lib/pagination";
 
 export async function GET(req: NextRequest) {
   try {
@@ -15,8 +16,10 @@ export async function GET(req: NextRequest) {
     const mood = searchParams.get("mood");
     const level = searchParams.get("level");
     const type = searchParams.get("type");
-    const page = parseInt(searchParams.get("page") ?? "1");
-    const limit = parseInt(searchParams.get("limit") ?? "10");
+    // Kẹp page/limit an toàn: limit=0 (Mongo trả TẤT CẢ) / âm / NaN / quá lớn đều bị chặn.
+    const { page, limit, skip } = parsePagination(
+      searchParams.get("page"), searchParams.get("limit"), { defaultLimit: 10, maxLimit: 50 }
+    );
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const filter: Record<string, any> = {};
@@ -27,7 +30,7 @@ export async function GET(req: NextRequest) {
     const [lessons, total] = await Promise.all([
       Lesson.find(filter)
         .sort({ created_at: -1 })
-        .skip((page - 1) * limit)
+        .skip(skip)
         .limit(limit)
         .lean(),
       Lesson.countDocuments(filter),

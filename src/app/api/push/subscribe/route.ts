@@ -28,3 +28,25 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Lỗi server" }, { status: 500 });
   }
 }
+
+
+/** Gỡ subscription khỏi DB khi user TẮT thông báo (gọi từ usePushNotification.unsubscribe).
+ *  Giúp dừng gửi push NGAY, không phải chờ 1 lần gửi lỗi (404/410) mới dọn. */
+export async function DELETE() {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const session = await (getServerSession as any)(authOptions);
+    if (!session?.user?.email) {
+      return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
+    }
+    await connectDB();
+    await User.updateOne(
+      { email: session.user.email },
+      { $unset: { push_subscription: "" } }
+    );
+    return NextResponse.json({ success: true });
+  } catch (e) {
+    console.error("[DELETE /api/push/subscribe]", e);
+    return NextResponse.json({ error: "Lỗi server" }, { status: 500 });
+  }
+}

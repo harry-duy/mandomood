@@ -93,10 +93,15 @@ export function removeCard(deckId: string, cardId: string): void {
   recordCardDeleted(cardId);
 }
 
-/** Thẻ đến hạn ôn của 1 deck (due <= now). */
+/**
+ * Thẻ đến hạn ôn của 1 deck (due <= now), SẮP THEO quá hạn lâu nhất TRƯỚC
+ * (due tăng dần) — đúng thực hành SRS: ôn thẻ nguy cơ quên cao nhất trước.
+ */
 export function getDueCards(deck: CustomDeck): CustomCard[] {
   const now = Date.now();
-  return deck.cards.filter((c) => new Date(c.due).getTime() <= now);
+  return deck.cards
+    .filter((c) => new Date(c.due).getTime() <= now)
+    .sort((a, b) => new Date(a.due).getTime() - new Date(b.due).getTime());
 }
 
 /** Chấm 1 thẻ theo SM-2 và lưu lại. quality 0–5. */

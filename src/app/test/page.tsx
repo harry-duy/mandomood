@@ -254,7 +254,7 @@ export default function TestPage() {
     trackEvent("test_completed");
     if (questions.length > 0 && correct === questions.length) trackEvent("test_perfect");
     // XP: 5 per correct answer, tối thiểu 10 XP để encourage hoàn thành
-    awardXP(Math.max(10, correct * 5), "HSK mock test");
+    awardXP(Math.max(10, correct * 5), "hsk_test");
     setPhase("result");
   };
 

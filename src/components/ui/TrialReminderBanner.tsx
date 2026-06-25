@@ -7,12 +7,13 @@ import { useState } from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { X } from "lucide-react";
+import { dayKeyLocal } from "@/lib/streak";
 
 const DISMISS_KEY = "mm_trial_banner_dismissed";
 
 function dismissedToday(): boolean {
   try {
-    return localStorage.getItem(DISMISS_KEY) === new Date().toISOString().slice(0, 10);
+    return localStorage.getItem(DISMISS_KEY) === dayKeyLocal(new Date());
   } catch {
     return false;
   }
@@ -30,7 +31,7 @@ export default function TrialReminderBanner() {
   if (!u || hidden) return null;
 
   const dismiss = () => {
-    try { localStorage.setItem(DISMISS_KEY, new Date().toISOString().slice(0, 10)); } catch { /* noop */ }
+    try { localStorage.setItem(DISMISS_KEY, dayKeyLocal(new Date())); } catch { /* noop */ }
     setHidden(true);
   };
 

@@ -1,5 +1,6 @@
 import type { MetadataRoute } from "next";
 import { BLOG_POSTS } from "@/lib/blog-data";
+import { CHARACTERS } from "@/lib/characters";
 
 const BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://mandomood.vercel.app";
 
@@ -64,5 +65,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
     changeFrequency: "monthly" as const,
     priority: 0.7,
   }));
-  return [...staticRoutes, ...blogRoutes];
+  // Trang chữ Hán tuyển chọn — SEO long-tail ("chữ X nghĩa là gì"); mỗi trang có metadata riêng.
+  const charRoutes = CHARACTERS.map((c) => ({
+    url: `${BASE_URL}/character/${encodeURIComponent(c.hanzi)}`,
+    lastModified: now,
+    changeFrequency: "monthly" as const,
+    priority: 0.6,
+  }));
+  return [...staticRoutes, ...blogRoutes, ...charRoutes];
 }

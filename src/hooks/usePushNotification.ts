@@ -83,6 +83,9 @@ export function usePushNotification() {
     if (sub) {
       await sub.unsubscribe();
       setSubscribed(false);
+      // Báo server gỡ subscription ngay (best-effort) → dừng push tức thì, không
+      // phải chờ 1 lần gửi lỗi (404/410) mới được dọn ở cron due-reminder.
+      try { await fetch("/api/push/subscribe", { method: "DELETE" }); } catch { /* offline — cron sẽ dọn sau */ }
     }
   };
 

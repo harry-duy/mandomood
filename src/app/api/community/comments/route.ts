@@ -7,6 +7,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-config";
 import { connectDB } from "@/lib/mongodb";
 import Comment from "@/models/Comment";
+import Post from "@/models/Post";
 import { checkRateLimit } from "@/lib/ratelimit";
 
 export async function GET(req: NextRequest) {
@@ -57,6 +58,9 @@ export async function POST(req: NextRequest) {
       author_image: session.user.image,
       content:      body.content.trim().slice(0, 500),
     });
+
+    // Tăng comment_count nguyên tử để badge hiển thị đúng số (trước đây field này chết).
+    await Post.updateOne({ _id: body.post_id }, { $inc: { comment_count: 1 } });
 
     return NextResponse.json({ comment }, { status: 201 });
   } catch (e) {

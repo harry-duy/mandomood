@@ -7,6 +7,7 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn, readJSON, writeJSON } from "@/lib/utils";
+import { dayKeyLocal } from "@/lib/streak";
 
 const MOODS = [
   { key: "romantic",   emoji: "💌", label: "Lãng mạn",  color: "from-pink-500/30 to-rose-500/10",    border: "border-pink-500/40"    },
@@ -35,7 +36,7 @@ export default function MoodCheckIn({ onMoodSelect }: Props) {
   useEffect(() => {
     const data = readJSON<CheckInData | null>(CHECKIN_KEY, null);
     if (!data) return;
-    const today = new Date().toISOString().slice(0, 10);
+    const today = dayKeyLocal(new Date()); // khoá ngày local (đồng bộ toàn app)
     if (data.date === today) {
       setCheckedIn(data);
       onMoodSelect?.(data.mood);
@@ -43,7 +44,7 @@ export default function MoodCheckIn({ onMoodSelect }: Props) {
   }, [onMoodSelect]);
 
   const handleSelect = (moodKey: string) => {
-    const today = new Date().toISOString().slice(0, 10);
+    const today = dayKeyLocal(new Date()); // khoá ngày local (đồng bộ toàn app)
     const data: CheckInData = { mood: moodKey, date: today };
     writeJSON(CHECKIN_KEY, data);
     setCheckedIn(data);
@@ -68,7 +69,7 @@ export default function MoodCheckIn({ onMoodSelect }: Props) {
           <p className="text-sm font-semibold">{m?.label}</p>
         </div>
         <button
-          onClick={() => { localStorage.removeItem(CHECKIN_KEY); setCheckedIn(null); }}
+          onClick={() => { try { localStorage.removeItem(CHECKIN_KEY); } catch { /* noop */ } setCheckedIn(null); }}
           className="text-xs text-[var(--text-muted)] hover:text-white transition-colors"
         >
           Đổi

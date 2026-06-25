@@ -36,24 +36,30 @@ export const SKILL_LABELS: SkillLabel[] = [
 ];
 
 /**
- * Đếm số ngày có task của TYPE nhất định được check.
- * Task ID thường chứa từ khoá liên quan (vd: "tones", "karaoke").
+ * Quét daily-plan MỘT LẦN, đếm số ngày có task được check khớp TỪNG nhóm keyword.
+ * Trả về map nhóm → số ngày. An toàn: bọc try/catch (Safari private mode có thể
+ * ném khi truy cập localStorage) và bỏ qua, tránh làm sập computeSkillScores.
  */
-function countDaysWithTaskType(keywords: string[]): number {
-  if (typeof localStorage === "undefined") return 0;
-  let count = 0;
-  for (let i = 0; i < localStorage.length; i++) {
-    const key = localStorage.key(i) ?? "";
-    if (!key.startsWith("mm_daily_plan_")) continue;
-    const plan = readJSON<{ checked?: Record<string, boolean> }>(key, {});
-    const checked = plan.checked ?? {};
-    // Kiểm tra nếu có bất kỳ task ID nào chứa keyword được check = true
-    const hasMatch = Object.entries(checked).some(([taskId, done]) =>
-      done && keywords.some(kw => taskId.toLowerCase().includes(kw))
-    );
-    if (hasMatch) count++;
-  }
-  return count;
+function countDaysByGroups(groups: Record<string, string[]>): Record<string, number> {
+  const counts: Record<string, number> = {};
+  for (const g of Object.keys(groups)) counts[g] = 0;
+  if (typeof localStorage === "undefined") return counts;
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i) ?? "";
+      if (!key.startsWith("mm_daily_plan_")) continue;
+      // daily-plan lưu map PHẲNG { taskId: boolean } (KHÔNG bọc .checked) — xem Sprint 130.
+      const plan = readJSON<Record<string, boolean>>(key, {});
+      const doneIds = Object.entries(plan)
+        .filter(([, done]) => done)
+        .map(([id]) => id.toLowerCase());
+      if (doneIds.length === 0) continue;
+      for (const [g, kws] of Object.entries(groups)) {
+        if (kws.some((kw) => doneIds.some((id) => id.includes(kw)))) counts[g]++;
+      }
+    }
+  } catch { /* localStorage bị chặn — trả về những gì đã đếm */ }
+  return counts;
 }
 
 /** Tính điểm từng kỹ năng — trả về 0–100. */
@@ -80,8 +86,14 @@ export function computeSkillScores(): SkillScores {
 
   // ─── Nghe ────────────────────────────────────────────────────────────────
   // Nguồn: mm_tones_best + karaoke/shadowing/dictation trong daily-plan + video đã xem
+  // Quét daily-plan 1 lần cho cả 3 kỹ năng dùng đến (thay vì 3 lần quét localStorage).
+  const dayCounts = countDaysByGroups({
+    listen: ["karaoke", "tones", "shadowing", "dictation", "nghe", "listen"],
+    speak: ["pronunciation", "shadowing", "karaoke", "phát âm", "nói", "speak"],
+    write: ["luyen-viet", "viet-tay", "viết", "write", "handwrit"],
+  });
   const tonesBest = readJSON<number>("mm_tones_best", 0);
-  const listenDays = countDaysWithTaskType(["karaoke", "tones", "shadowing", "dictation", "nghe", "listen"]);
+  const listenDays = dayCounts.listen;
   const videosWatched = readJSON<string[]>("mm_video_watched", []).length;
   // tones_best đóng góp 55%, activity days tối đa 30, videos tối đa 15
   const listening = Math.min(100, Math.round(tonesBest * 0.55 + Math.min(30, listenDays * 6) + Math.min(15, videosWatched * 3)));
@@ -89,7 +101,7 @@ export function computeSkillScores(): SkillScores {
   // ─── Nói ─────────────────────────────────────────────────────────────────
   // Nguồn: mm_practice_best + pronunciation/shadowing days
   const practiceBest = readJSON<number>("mm_practice_best", 0);
-  const speakDays = countDaysWithTaskType(["pronunciation", "shadowing", "karaoke", "phát âm", "nói", "speak"]);
+  const speakDays = dayCounts.speak;
   // practice_best đóng góp 50%, activity days tối đa 50
   const speaking = Math.min(100, Math.round(practiceBest * 0.5 + Math.min(50, speakDays * 8)));
 
@@ -110,7 +122,7 @@ export function computeSkillScores(): SkillScores {
   const storyCount = storyHistory.length;
   // Tạo truyện → 5 điểm/truyện, tối đa 50
   const writeFromStories = Math.min(50, storyCount * 5);
-  const writeDays = countDaysWithTaskType(["luyen-viet", "viet-tay", "viết", "write", "handwrit"]);
+  const writeDays = dayCounts.write;
   // Mỗi ngày luyện viết = +8 điểm, tối đa 35
   const writeFromPractice = Math.min(35, writeDays * 8);
   // Ký tự đã vẽ tay nhận dạng (mm_viet_tay_chars) → 3 điểm/ký tự, tối đa 15

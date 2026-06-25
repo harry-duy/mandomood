@@ -36,12 +36,11 @@ export async function GET(req: NextRequest) {
     );
     let search: unknown[] | undefined;
     if (filterActive) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const found = await User.find(filterQuery)
         .select("name email xp streak_days level premium created_at last_active provider")
         .sort({ xp: -1 })
         .limit(50)
-        .lean() as any[];
+        .lean() as Record<string, unknown>[];
       search = found.map((u) => ({
         name: u.name ?? "—", email: u.email ?? "", xp: u.xp ?? 0,
         streak_days: u.streak_days ?? 0, level: u.level ?? "beginner",

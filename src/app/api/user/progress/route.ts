@@ -2,8 +2,8 @@
  * POST /api/user/progress
  * Body: { xp, action: "complete_lesson" | "complete_quiz" | "view_quote" }
  *
- * Streak logic:
- *   same-day  -> keep streak
+ * Streak logic (xem @/lib/xpProgress — PURE, có unit test):
+ *   same-day  -> keep streak (KHÔNG thưởng lại mốc)
  *   yesterday -> +1 streak
  *   older     -> reset to 1
  *
@@ -15,20 +15,8 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-config";
 import { connectDB } from "@/lib/mongodb";
 import User from "@/models/User";
-
-function isSameDay(d1: Date, d2: Date) {
-  return (
-    d1.getFullYear() === d2.getFullYear() &&
-    d1.getMonth() === d2.getMonth() &&
-    d1.getDate() === d2.getDate()
-  );
-}
-
-function isYesterday(date: Date, today: Date) {
-  const yesterday = new Date(today);
-  yesterday.setDate(yesterday.getDate() - 1);
-  return isSameDay(date, yesterday);
-}
+import { levelFromXp } from "@/lib/levels";
+import { applyDailyStreak } from "@/lib/xpProgress";
 
 function getNextMonday(): Date {
   const d = new Date();
@@ -58,6 +46,7 @@ export async function POST(req: NextRequest) {
       complete_lesson: 20,
       complete_quiz: 50,
       daily_challenge: 100,
+      hsk_test: 100, // thi thử HSK — trần rõ ràng (tránh dính default 50 nếu QUIZ_SIZE tăng)
       view_quote: 5,
     };
     const cap = XP_CAP[action] ?? 50;
@@ -74,34 +63,19 @@ export async function POST(req: NextRequest) {
     const now = new Date();
     const lastActive = user.last_active ?? new Date(0);
 
-    // Streak
-    let newStreak = user.streak_days;
-    if (isSameDay(lastActive, now)) {
-      newStreak = user.streak_days;
-    } else if (isYesterday(lastActive, now)) {
-      newStreak = user.streak_days + 1;
-    } else {
-      newStreak = 1;
-    }
-
-    // Streak bonus XP
-    let bonusXP = 0;
-    if (newStreak === 7) bonusXP = 50;
-    if (newStreak === 30) bonusXP = 200;
-    if (newStreak === 100) bonusXP = 500;
+    // Streak + thưởng mốc qua helper PURE: thưởng CHỈ khi streak vừa tăng trong ngày
+    // (tránh cộng lặp mỗi hành động cùng ngày → lạm phát XP).
+    const { streak: newStreak, bonusXp: bonusXP } = applyDailyStreak(
+      lastActive,
+      now,
+      user.streak_days ?? 0
+    );
 
     const totalXP = xp + bonusXP;
     const newTotalXP = user.xp + totalXP;
 
-    // Level up
-    const LEVEL_THRESHOLDS: Record<string, number> = {
-      beginner: 0, hsk1: 100, hsk2: 300,
-      hsk3: 700, hsk4: 1500, hsk5: 3000, hsk6: 6000,
-    };
-    let newLevel = user.level;
-    for (const [lvl, threshold] of Object.entries(LEVEL_THRESHOLDS)) {
-      if (newTotalXP >= threshold) newLevel = lvl;
-    }
+    // Level up — nguồn chân lý chung @/lib/levels (cấp chỉ tăng vì XP chỉ tăng).
+    const newLevel = levelFromXp(newTotalXP);
 
     // Weekly XP: reset nếu qua Monday
     const weeklyReset = user.weekly_xp_reset ?? new Date(0);

@@ -64,3 +64,22 @@ test("removeCard + deleteDeck", () => {
   deleteDeck(d.id);
   assert.equal(getDecks().length, 0);
 });
+
+test("getDueCards: sắp thẻ quá hạn lâu nhất trước (Sprint 109)", () => {
+  const deck = createDeck("SRS order");
+  addCard(deck.id, { front: "A", back: "a" });
+  addCard(deck.id, { front: "B", back: "b" });
+  addCard(deck.id, { front: "C", back: "c" });
+  const decks = getDecks();
+  const d = decks.find((x) => x.id === deck.id)!;
+  const now = Date.now();
+  const byFront = (f: string) => d.cards.find((c) => c.front === f)!;
+  byFront("A").due = new Date(now - 1 * 86400000).toISOString();   // -1 ngày
+  byFront("B").due = new Date(now - 5 * 86400000).toISOString();   // -5 ngày (lâu nhất)
+  byFront("C").due = new Date(now - 0.1 * 86400000).toISOString(); // gần nhất
+  // Ghi thẳng vào mock localStorage (key nội bộ của customDecks).
+  (globalThis as unknown as { window: { localStorage: { setItem(k: string, v: string): void } } })
+    .window.localStorage.setItem("mm_custom_decks", JSON.stringify(decks));
+  const due = getDueCards(getDecks().find((x) => x.id === deck.id)!);
+  assert.deepEqual(due.map((c) => c.front), ["B", "A", "C"], "quá-hạn-lâu-nhất phải đứng trước");
+});

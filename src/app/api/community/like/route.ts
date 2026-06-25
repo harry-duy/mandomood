@@ -2,6 +2,11 @@
  * POST /api/community/like
  * Body: { postId }
  * Toggle like/unlike — trả về { liked, like_count }
+ *
+ * Dùng toán tử nguyên tử $addToSet/$pull để chống double-like khi bấm nhanh
+ * hoặc thao tác từ 2 thiết bị (trước đây read-modify-write không nguyên tử →
+ * có thể nhân đôi email trong mảng likes + lệch like_count). like_count lấy
+ * theo ĐỘ DÀI mảng likes làm nguồn chân lý nên không bao giờ trôi số.
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -22,22 +27,25 @@ export async function POST(req: NextRequest) {
     if (!postId) return NextResponse.json({ error: "Thiếu postId" }, { status: 400 });
 
     await connectDB();
-    const post = await Post.findById(postId);
-    if (!post) return NextResponse.json({ error: "Không tìm thấy bài" }, { status: 404 });
-
     const email = session.user.email as string;
-    const alreadyLiked = post.likes.includes(email);
 
-    if (alreadyLiked) {
-      post.likes = post.likes.filter((e: string) => e !== email);
-      post.like_count = Math.max(0, post.like_count - 1);
-    } else {
-      post.likes.push(email);
-      post.like_count += 1;
-    }
+    const current = await Post.findById(postId).select("likes").lean() as { likes?: string[] } | null;
+    if (!current) return NextResponse.json({ error: "Không tìm thấy bài" }, { status: 404 });
 
-    await post.save();
-    return NextResponse.json({ liked: !alreadyLiked, like_count: post.like_count });
+    const alreadyLiked = (current.likes ?? []).includes(email);
+
+    // $pull bỏ MỌI bản trùng; $addToSet không thêm trùng → mảng likes luôn sạch.
+    const updated = await Post.findByIdAndUpdate(
+      postId,
+      alreadyLiked ? { $pull: { likes: email } } : { $addToSet: { likes: email } },
+      { new: true }
+    ).select("likes").lean() as { likes?: string[] } | null;
+
+    const count = (updated?.likes ?? []).length;
+    // Đồng bộ like_count = độ dài mảng (nguồn chân lý, tự chữa nếu từng lệch).
+    await Post.updateOne({ _id: postId }, { $set: { like_count: count } });
+
+    return NextResponse.json({ liked: !alreadyLiked, like_count: count });
   } catch (e) {
     console.error("[POST /api/community/like]", e);
     return NextResponse.json({ error: "Lỗi server" }, { status: 500 });

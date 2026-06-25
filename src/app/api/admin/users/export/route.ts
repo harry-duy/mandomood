@@ -41,12 +41,11 @@ export async function GET(req: NextRequest) {
     const { query } = buildUserFilter(
       { q: sp.get("q") ?? "", tier: sp.get("tier") ?? "", level: sp.get("level") ?? "" }
     );
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const users = await User.find(query)
       .select("name email provider level xp streak_days premium premium_until created_at last_active")
       .sort({ created_at: -1 })
       .limit(10000)
-      .lean() as any[];
+      .lean() as Record<string, unknown>[];
 
     const header = [
       "name", "email", "provider", "level", "xp", "streak_days",

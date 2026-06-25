@@ -18,6 +18,7 @@ import MoodFilter from "@/components/ui/MoodFilter";
 import { FeedSkeleton } from "@/components/ui/LoadingSkeleton";
 import { useAppStore } from "@/store/useAppStore";
 import { cn } from "@/lib/utils";
+import { shuffle } from "@/lib/shuffle";
 import { MOOD_COLORS, MOOD_EMOJI, LEVEL_LABEL } from "@/lib/utils";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -367,7 +368,7 @@ export default function FeedPage() {
         if (selectedType && l.content_type !== selectedType) return false;
         return true;
       });
-      setLessons(filtered);
+      setLessons(shuffle(filtered)); // trộn ngẫu nhiên → mỗi lần vào thấy khác
       setHasMore(false);
     } finally {
       if (seq === fetchSeqRef.current) setLoading(false);

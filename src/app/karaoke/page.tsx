@@ -14,7 +14,7 @@
  *  - Ẩn/hiện pinyin, ẩn/hiện dịch
  *  - Lặp 1 câu
  *  - XP + điểm chính tả cuối phiên
- *  - Phím tắt: Space (play/pause), ← → (prev/next)
+ *  - Phím tắt: Space (play/pause), ← → (prev/next), R (replay câu hiện tại)
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -145,6 +145,12 @@ async function waitForVoices(): Promise<void> {
   });
 }
 
+// Ẩn chữ Hán cho chế độ chính tả: giữ lại dấu câu làm gợi ý nhịp câu,
+// thay mỗi ký tự cần gõ bằng ？ — học viên thấy độ dài & ngắt câu mà không lộ đáp án.
+function maskHanzi(text: string): string {
+  return text.replace(/[\u4e00-\u9fff\u3400-\u4dbf]/g, "？");
+}
+
 // ─── Component ─────────────────────────────────────────────────────────────────
 
 const MODE_CONFIG: Record<Mode, { icon: React.ElementType; label: string; desc: string; color: string }> = {
@@ -234,7 +240,7 @@ export default function KaraokePage() {
     if (mode === "listen") {
       setPhase("playing");
       await speakSegment(segment);
-      if (loopOne) { runCycle(currentIdx); return; }
+      if (loopOne) { runCycleRef.current(currentIdx); return; }
       advanceOrDone(currentIdx);
     } else if (mode === "shadow") {
       // 1. phát câu
@@ -250,7 +256,7 @@ export default function KaraokePage() {
         setGapCount(remaining);
         if (remaining <= 0) {
           if (gapTimer.current) { clearInterval(gapTimer.current); gapTimer.current = null; }
-          if (loopOne) { runCycle(currentIdx); return; }
+          if (loopOne) { runCycleRef.current(currentIdx); return; }
           advanceOrDone(currentIdx);
         }
       }, 1000);
@@ -262,6 +268,11 @@ export default function KaraokePage() {
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, speed, loopOne, track, speakSegment, advanceOrDone]);
+
+  // Giữ ref trỏ tới runCycle mới nhất để gọi đệ quy (loop) không bắt closure cũ
+  const runCycleRef = useRef<(currentIdx: number) => void>(() => {});
+  // eslint-disable-next-line react-hooks/immutability -- latest-ref idiom hợp lệ
+  useEffect(() => { runCycleRef.current = runCycle; }, [runCycle]);
 
   // ── Replay hiện tại ──
   const replay = useCallback(() => {
@@ -322,10 +333,18 @@ export default function KaraokePage() {
       if (e.code === "Space") { e.preventDefault(); togglePlay(); }
       if (e.code === "ArrowLeft") prev();
       if (e.code === "ArrowRight") next();
+      if (e.code === "KeyR") { e.preventDefault(); replay(); }
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [togglePlay, prev, next]);
+  }, [togglePlay, prev, next, replay]);
+
+  // Dừng TTS khi rời tab/ẩn trang — tránh giọng đọc chạy nền gây rối + tốn pin.
+  useEffect(() => {
+    const onHidden = () => { if (document.hidden) stopAll(); };
+    document.addEventListener("visibilitychange", onHidden);
+    return () => document.removeEventListener("visibilitychange", onHidden);
+  }, [stopAll]);
 
   // ── Điểm chính tả ──
   const dictScore = useMemo(() => {
@@ -337,7 +356,7 @@ export default function KaraokePage() {
   // ════════════════════════════════════════════════════════════════════════════
   // RENDER — màn hình chọn bài
   // ════════════════════════════════════════════════════════════════════════════
-  if (!selectedTrack) {
+  if (!track) {
     return (
       <main className="min-h-screen px-4 py-6 max-w-2xl mx-auto pb-24 pt-20">
         <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} className="mb-6">
@@ -534,7 +553,7 @@ export default function KaraokePage() {
                     isActive ? "text-[#F5F0EB]" : "text-[#8A8078]"
                   )} lang="zh-CN">
                     {mode === "dictation" && isActive && phase !== "paused" && !result
-                      ? "？？？？？？"
+                      ? maskHanzi(seg.chinese)
                       : seg.chinese}
                   </p>
 
@@ -628,7 +647,7 @@ export default function KaraokePage() {
 
       {/* Phím tắt hint */}
       <p className="text-center text-[10px] text-[#3A3A3A] mt-2 pb-2">
-        Space · ← → để điều hướng
+        Space phát/dừng · ← → chuyển câu · R nghe lại
       </p>
     </main>
   );

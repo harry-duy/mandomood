@@ -12,6 +12,8 @@ export interface AchievementStats {
   testsTaken?: number;
   /** Điểm % cao nhất từng đạt trong /test (0-100). */
   bestTestPct?: number;
+  /** Số từ vựng đã lưu vào Sổ tay (mm_saved_words). */
+  wordsSaved?: number;
 }
 
 export interface Badge {
@@ -74,6 +76,24 @@ export const BADGES: Badge[] = [
     earned: (s) => s.bestTestPct >= 100,
     progress: (s) => Math.min(1, s.bestTestPct / 100),
   },
+  {
+    id: "vocab-saver-30", emoji: "🔖", title: "Người sưu tầm từ",
+    desc: "Lưu 30 từ vào Sổ tay",
+    earned: (s) => s.wordsSaved >= 30,
+    progress: (s) => Math.min(1, s.wordsSaved / 30),
+  },
+  {
+    id: "vocab-saver-100", emoji: "📓", title: "Kho từ vựng",
+    desc: "Lưu 100 từ vào Sổ tay",
+    earned: (s) => s.wordsSaved >= 100,
+    progress: (s) => Math.min(1, s.wordsSaved / 100),
+  },
+  {
+    id: "vocab-saver-300", emoji: "🧠", title: "Từ điển sống",
+    desc: "Lưu 300 từ vào Sổ tay",
+    earned: (s) => s.wordsSaved >= 300,
+    progress: (s) => Math.min(1, s.wordsSaved / 300),
+  },
 ];
 
 export interface BadgeState extends Badge {
@@ -88,6 +108,7 @@ export function evaluateBadges(stats: AchievementStats): BadgeState[] {
     streak: stats.streak ?? 0,
     testsTaken: stats.testsTaken ?? 0,
     bestTestPct: stats.bestTestPct ?? 0,
+    wordsSaved: stats.wordsSaved ?? 0,
   };
   return BADGES.map((b) => ({
     ...b,

@@ -20,8 +20,9 @@ import { getDecks, getDueCards } from "@/lib/customDecks";
 import { getSavedWords } from "@/lib/savedWords";
 import { getTestHistory, summarizeTests, pctOf, type TestResult } from "@/lib/testHistory";
 import { useProgress } from "@/hooks/useProgress";
-import { computeSkillScores, SKILL_LABELS, overallScore, weakestSkill } from "@/lib/skillScores";
+import { computeSkillScores, SKILL_LABELS, overallScore } from "@/lib/skillScores";
 import { getPersonalizedMilestones, getMotivationalMessage } from "@/lib/learningPath";
+import { computeStreak, dayKeyLocal } from "@/lib/streak";
 
 interface HistoryItem {
   id: string;
@@ -52,34 +53,32 @@ function loadHistory(): HistoryItem[] {
 
 /**
  * Đọc ngày nào có daily-plan task được check → thêm vào activity counts.
- * Key format: mm_daily_plan_YYYY_M_D → { checked: { taskId: boolean } }
+ * Key format: mm_daily_plan_YYYY_M_D → { taskId: boolean } (map phẳng, KHÔNG bọc .checked)
  */
 function loadDailyPlanDays(): string[] {
   const active: string[] = [];
-  for (let i = 0; i < localStorage.length; i++) {
-    const key = localStorage.key(i) ?? "";
-    if (!key.startsWith("mm_daily_plan_")) continue;
-    // key = mm_daily_plan_YYYY_M_D
-    const parts = key.replace("mm_daily_plan_", "").split("_");
-    if (parts.length !== 3) continue;
-    const [y, m, d] = parts;
-    const date = new Date(Number(y), Number(m) - 1, Number(d));
-    if (isNaN(date.getTime())) continue;
-    const plan = readJSON<{ checked?: Record<string, boolean> }>(key, {});
-    const hasAny = Object.values(plan.checked ?? {}).some(Boolean);
-    if (hasAny) {
-      // push as ISO date key YYYY-MM-DD
-      active.push(
-        `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`
-      );
+  // Bọc try/catch: Safari private mode có thể ném khi truy cập localStorage.
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i) ?? "";
+      if (!key.startsWith("mm_daily_plan_")) continue;
+      // key = mm_daily_plan_YYYY_M_D
+      const parts = key.replace("mm_daily_plan_", "").split("_");
+      if (parts.length !== 3) continue;
+      const [y, m, d] = parts;
+      const date = new Date(Number(y), Number(m) - 1, Number(d));
+      if (isNaN(date.getTime())) continue;
+      const plan = readJSON<Record<string, boolean>>(key, {});
+      const hasAny = Object.values(plan).some(Boolean);
+      if (hasAny) {
+        // push as ISO date key YYYY-MM-DD
+        active.push(
+          `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`
+        );
+      }
     }
-  }
+  } catch { /* localStorage bị chặn — trả về những gì đã gom */ }
   return active;
-}
-
-/** Khoá ngày YYYY-MM-DD theo local time. */
-function dayKey(d: Date): string {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
 // Server trả về level theo ngưỡng XP: beginner → hsk1 → hsk2 → ... → hsk6
@@ -114,7 +113,7 @@ export default function ProgressPage() {
     const counts: Record<string, number> = {};
     for (const h of history) {
       const d = new Date(h.createdAt);
-      if (!isNaN(d.getTime())) counts[dayKey(d)] = (counts[dayKey(d)] ?? 0) + 1;
+      if (!isNaN(d.getTime())) counts[dayKeyLocal(d)] = (counts[dayKeyLocal(d)] ?? 0) + 1;
     }
     // Gộp ngày có daily-plan task (cộng thêm 1 điểm hoạt động/ngày)
     for (const dk of planDays) {
@@ -126,20 +125,14 @@ export default function ProgressPage() {
     for (let i = 13; i >= 0; i--) {
       const d = new Date(now);
       d.setDate(now.getDate() - i);
-      const key = dayKey(d);
+      const key = dayKeyLocal(d);
       days.push({ key, label: String(d.getDate()), count: counts[key] ?? 0 });
     }
 
     const last7 = days.slice(7).reduce((s, d) => s + d.count, 0);
 
-    // Streak: số ngày liên tiếp gần nhất có hoạt động (tính tới hôm nay/hôm qua)
-    let streak = 0;
-    for (let i = 0; ; i++) {
-      const d = new Date(now);
-      d.setDate(now.getDate() - i);
-      if (counts[dayKey(d)]) streak++;
-      else break;
-    }
+    // Streak: dùng helper chung (có ân hạn hôm nay) → nhất quán với trang chủ.
+    const streak = computeStreak(Object.keys(counts), now);
 
     // Kỷ lục streak (chuỗi ngày liên tiếp dài nhất trong toàn bộ lịch sử)
     const activeKeys = Object.keys(counts).sort();
@@ -198,7 +191,6 @@ export default function ProgressPage() {
       {/* ── Phân tích kỹ năng ── */}
       {(() => {
         const overall = overallScore(skillScores);
-        const weak = weakestSkill(skillScores);
         const milestones = getPersonalizedMilestones(skillScores);
         const hasData = overall > 0;
         return (
@@ -454,6 +446,7 @@ export default function ProgressPage() {
         streak: stats.streak,
         testsTaken: tests.length,
         bestTestPct: summarizeTests(tests).best,
+        wordsSaved: review?.savedWords ?? 0,
       }} />
 
       <Link

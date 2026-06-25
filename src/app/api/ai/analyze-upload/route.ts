@@ -8,7 +8,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { analyzeImageContent, analyzeTextContent } from "@/lib/openai";
 import { checkRateLimit, getRateLimitHeaders } from "@/lib/ratelimit";
-import { getPremiumStatus, consumeDailyQuota } from "@/lib/premiumServer";
+import { getPremiumStatus, consumeDailyQuota, refundDailyQuota } from "@/lib/premiumServer";
 import { FREE_DAILY_UPLOAD } from "@/lib/premium";
 
 function buildFallbackLesson(text: string) {
@@ -71,6 +71,7 @@ export async function POST(req: NextRequest) {
   // Premium/trial: không giới hạn. Free đã đăng nhập: FREE_DAILY_UPLOAD lượt quét/ngày
   // (Vision là endpoint AI tốn kém nhất → bảo vệ chi phí, vẫn rộng rãi). Khách: chỉ giới hạn IP ở trên.
   const { email, source } = await getPremiumStatus();
+  let consumedQuota = false;
   if (email && source === null) {
     const quota = await consumeDailyQuota(email, "upload", FREE_DAILY_UPLOAD);
     if (!quota.allowed) {
@@ -79,6 +80,7 @@ export async function POST(req: NextRequest) {
         { status: 429 }
       );
     }
+    consumedQuota = true;
   }
 
   let fallbackText = "";
@@ -142,6 +144,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Content-Type khong ho tro" }, { status: 400 });
 
   } catch (error) {
+    if (consumedQuota && email) await refundDailyQuota(email, "upload");
     console.error("[POST /api/ai/analyze-upload]", error);
     if (fallbackText.trim()) {
       return NextResponse.json({ success: true, fallback: true, ...buildFallbackLesson(fallbackText) });

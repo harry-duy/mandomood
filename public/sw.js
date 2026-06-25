@@ -1,5 +1,5 @@
 /**
- * MandoMood Service Worker (v6)
+ * MandoMood Service Worker (v7)
  * - Push notification listener
  * - Offline cache (PWA)
  *   • Cache-first cho tài nguyên tĩnh (Next static, icons, fonts) → mở app nhanh, dùng offline.
@@ -8,7 +8,7 @@
  *   • KHÔNG cache API có dữ liệu người dùng (tránh rò rỉ dữ liệu giữa các tài khoản).
  */
 
-const CACHE_NAME = "mandomood-v6";
+const CACHE_NAME = "mandomood-v7";
 const OFFLINE_URLS = ["/", "/offline", "/feed", "/leaderboard", "/flashcards", "/luyen-viet", "/explore", "/dictation", "/my-decks", "/hsk", "/lo-trinh"];
 
 // Endpoint CÔNG KHAI an toàn để cache (không phụ thuộc đăng nhập)
@@ -130,13 +130,29 @@ self.addEventListener("push", (event) => {
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
   if (event.action === "close") return;
-  const url = event.notification.data?.url ?? "/";
+
+  // Payload server gửi URL TƯƠNG ĐỐI (vd "/review"). client.url luôn TUYỆT ĐỐI
+  // (vd "https://app/review") → so sánh trực tiếp luôn sai → trước đây MỞ TAB MỚI
+  // dù app đang mở. Chuẩn hoá về URL tuyệt đối cùng origin trước khi so khớp.
+  const targetUrl = new URL(event.notification.data?.url ?? "/", self.location.origin).href;
+
   event.waitUntil(
-    self.clients.matchAll({ type: "window" }).then((clients) => {
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {
+      // a) Đã có cửa sổ đúng trang → focus luôn.
       for (const client of clients) {
-        if (client.url === url && "focus" in client) return client.focus();
+        if (client.url === targetUrl && "focus" in client) return client.focus();
       }
-      return self.clients.openWindow(url);
+      // b) Có cửa sổ app (khác trang) → focus rồi điều hướng tới đúng trang, tránh tab mới.
+      for (const client of clients) {
+        if ("focus" in client) {
+          if ("navigate" in client) {
+            return client.focus().then((c) => (c && c.navigate ? c.navigate(targetUrl) : c));
+          }
+          return client.focus();
+        }
+      }
+      // c) Chưa có cửa sổ nào → mở mới.
+      return self.clients.openWindow(targetUrl);
     })
   );
 });

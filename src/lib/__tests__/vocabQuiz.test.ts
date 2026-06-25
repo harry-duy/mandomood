@@ -80,3 +80,27 @@ test("count lớn hơn kho → chỉ trả tối đa số từ hợp lệ", () =
   const qs = generateVocabQuestions(WORDS, "hsk1", 99);
   assert.equal(qs.length, WORDS.length);
 });
+
+test("dạng pinyin: KHÔNG có nhiễu đồng âm → chỉ 1 đáp án đúng (Sprint 107)", () => {
+  const homophones: HSKWord[] = [
+    { hanzi: "是", pinyin: "shì", meaning: "Là", hanViet: "thị" },
+    { hanzi: "事", pinyin: "shì", meaning: "Việc", hanViet: "sự" },
+    { hanzi: "试", pinyin: "shì", meaning: "Thử", hanViet: "thí" },
+    { hanzi: "你好", pinyin: "nǐ hǎo", meaning: "Xin chào", hanViet: "nhĩ hảo" },
+    { hanzi: "谢谢", pinyin: "xiè xie", meaning: "Cảm ơn", hanViet: "tạ tạ" },
+    { hanzi: "爱", pinyin: "ài", meaning: "Yêu", hanViet: "ái" },
+    { hanzi: "家", pinyin: "jiā", meaning: "Nhà", hanViet: "gia" },
+  ];
+  const qs = generateVocabQuestions(homophones, "hsk1", 12);
+  const pinyinQs = qs.filter((q) => q.type === "pinyin");
+  assert.ok(pinyinQs.length > 0, "phải có ít nhất 1 câu dạng pinyin để kiểm");
+  for (const q of pinyinQs) {
+    const targetHanzi = q.id.replace("gen_hsk1_", "");
+    const target = homophones.find((w) => w.hanzi === targetHanzi)!;
+    const sameReading = q.options.filter((opt) => {
+      const w = homophones.find((x) => x.hanzi === opt);
+      return w && w.pinyin === target.pinyin;
+    });
+    assert.equal(sameReading.length, 1, `câu "${q.question}" có ${sameReading.length} đáp án đọc trùng → mơ hồ`);
+  }
+});

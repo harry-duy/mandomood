@@ -14,6 +14,7 @@ import { ArrowRight, Sparkles } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
 import { readJSON } from "@/lib/utils";
 import { buildRoadmap } from "@/lib/roadmap";
+import { computeStreakFromTimestamps } from "@/lib/streak";
 
 const LEVEL_LABEL: Record<string, string> = {
   beginner: "Mới bắt đầu",
@@ -26,21 +27,6 @@ const GOAL_LABEL: Record<string, string> = {
   culture: "Văn hóa", fun: "Giải trí",
 };
 
-/** Đếm streak ngày liên tiếp từ lịch sử truyện (mm_story_history). */
-function computeStreak(dates: string[]): number {
-  const days = new Set(dates.map((d) => d.slice(0, 10)));
-  let streak = 0;
-  const cur = new Date();
-  // cho phép hôm nay HOẶC hôm qua là mốc bắt đầu (chưa học hôm nay vẫn giữ chuỗi)
-  const today = cur.toISOString().slice(0, 10);
-  if (!days.has(today)) cur.setDate(cur.getDate() - 1);
-  for (;;) {
-    const key = cur.toISOString().slice(0, 10);
-    if (days.has(key)) { streak++; cur.setDate(cur.getDate() - 1); } else break;
-  }
-  return streak;
-}
-
 export default function NextLesson() {
   const onboarding = useAppStore((s) => s.onboarding);
   const goal = onboarding?.goal ?? "fun";
@@ -50,7 +36,8 @@ export default function NextLesson() {
   useEffect(() => {
     const hist = readJSON<{ createdAt?: string }[]>("mm_story_history", []);
     const dates = hist.map((h) => h.createdAt ?? "").filter(Boolean);
-    setStats({ storiesCreated: hist.length, streak: computeStreak(dates) });
+    // Dùng helper chung: khoá ngày theo GIỜ ĐỊA PHƯƠNG (tránh lệch ngày UTC) + ân hạn hôm nay.
+    setStats({ storiesCreated: hist.length, streak: computeStreakFromTimestamps(dates) });
   }, []);
 
   const plan = buildRoadmap({ goal, level, ...stats });

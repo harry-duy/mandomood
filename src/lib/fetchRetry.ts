@@ -104,10 +104,12 @@ export function postJSON<T = unknown>(
   body: unknown,
   options: FetchJSONOptions = {}
 ): Promise<T> {
+  // Spread options TRƯỚC rồi đặt method/headers/body sau → options không thể
+  // vô tình ghi đè (đặc biệt làm MẤT Content-Type khi caller truyền headers riêng).
   return fetchJSON<T>(url, {
-    method: "POST",
+    ...options,
+    method: options.method ?? "POST",
     headers: { "Content-Type": "application/json", ...(options.headers ?? {}) },
     body: JSON.stringify(body),
-    ...options,
   });
 }

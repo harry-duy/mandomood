@@ -6,7 +6,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { chatWithTutor, type TutorPersona, type StoryLevel } from "@/lib/openai";
 import { checkRateLimit, getRateLimitHeaders } from "@/lib/ratelimit";
-import { getPremiumStatus, consumeDailyQuota } from "@/lib/premiumServer";
+import { getPremiumStatus, consumeDailyQuota, refundDailyQuota } from "@/lib/premiumServer";
 import { FREE_DAILY_CHAT } from "@/lib/premium";
 
 export async function POST(req: NextRequest) {
@@ -19,6 +19,7 @@ export async function POST(req: NextRequest) {
   }
   // Premium/trial: không giới hạn. Free: FREE_DAILY_CHAT tin/ngày.
   const { email, source } = await getPremiumStatus();
+  let consumedQuota = false;
   if (source === null) {
     if (email) {
       const quota = await consumeDailyQuota(email, "chat", FREE_DAILY_CHAT);
@@ -28,6 +29,7 @@ export async function POST(req: NextRequest) {
           code: "UPGRADE_REQUIRED",
         }, { status: 402 });
       }
+      consumedQuota = true;
     } else if (!checkRateLimit(`chat-day:${ip}`, FREE_DAILY_CHAT, 24 * 3600 * 1000)) {
       return NextResponse.json({
         error: `Khách chưa đăng nhập được ${FREE_DAILY_CHAT} tin/ngày. Đăng nhập để nhận 30 ngày Premium miễn phí 🎁`,
@@ -62,6 +64,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ reply });
   } catch (error) {
+    if (consumedQuota && email) await refundDailyQuota(email, "chat");
     console.error("[POST /api/ai/chat]", error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Lỗi AI" },

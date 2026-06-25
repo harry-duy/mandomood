@@ -3,7 +3,7 @@
  * Trả về audio MP3 từ ElevenLabs.
  * Nếu ELEVENLABS_API_KEY chưa set → 503 để client fallback về Web Speech API.
  *
- * Cache: in-memory Map (max 200 entries, LRU-lite)
+ * Cache: in-memory Map (max 200 entries, LRU thật — hit thì đẩy lên mới nhất)
  * Voice: multilingual v2 — phát âm tiếng Trung chuẩn
  */
 
@@ -20,6 +20,8 @@ const cache = new Map<string, ArrayBuffer>();
 const MAX_CACHE = 200;
 
 function evictIfFull() {
+  // Map giữ thứ tự chèn → key đầu tiên = ÍT DÙNG GẦN ĐÂY NHẤT (LRU) vì mỗi lần
+  // hit ta đã re-insert key lên cuối. Loại key đầu = đúng LRU.
   if (cache.size >= MAX_CACHE) {
     const firstKey = cache.keys().next().value;
     if (firstKey !== undefined) cache.delete(firstKey);
@@ -52,9 +54,11 @@ export async function GET(req: NextRequest) {
   const safeText = text.slice(0, 500);
   const cacheKey = `${VOICE_ID_FINAL}:${safeText}`;
 
-  // Cache hit
+  // Cache hit → đẩy key lên cuối (mới nhất dùng) để eviction loại đúng LRU.
   if (cache.has(cacheKey)) {
     const buf = cache.get(cacheKey)!;
+    cache.delete(cacheKey);
+    cache.set(cacheKey, buf);
     return new NextResponse(buf, {
       status: 200,
       headers: {

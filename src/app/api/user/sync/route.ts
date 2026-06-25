@@ -86,12 +86,19 @@ export async function POST(req: NextRequest) {
     // Cập nhật thành tích thi lên User (nguồn cho leaderboard) — best-effort,
     // lỗi không làm hỏng sync.
     try {
-      const results = merged.testResults ?? [];
+      // Phòng thủ tầng sâu: chỉ tính từ bản ghi HỢP LỆ (total>0, score hữu hạn) và
+      // CLAMP 0–100 → leaderboard không bao giờ nhận NaN/Infinity/>100% kể cả nếu
+      // sanitize đầu vào bị nới lỏng trong tương lai.
+      const results = (merged.testResults ?? []).filter(
+        (r) => r.total > 0 && Number.isFinite(r.score)
+      );
       if (results.length > 0) {
-        const best = Math.max(...results.map((r) => Math.round((r.score / r.total) * 100)));
+        const best = Math.max(
+          ...results.map((r) => Math.round((r.score / r.total) * 100))
+        );
         await User.updateOne(
           { email },
-          { $set: { test_best_pct: best, tests_taken: results.length } }
+          { $set: { test_best_pct: Math.max(0, Math.min(100, best)), tests_taken: results.length } }
         );
       }
     } catch (e) {

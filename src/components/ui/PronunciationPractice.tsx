@@ -7,9 +7,9 @@
  * - Highlight từ đúng/sai theo màu
  */
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Mic, MicOff, Volume2, RefreshCw, CheckCircle2, XCircle, AlertCircle } from "lucide-react";
+import { Mic, MicOff, Volume2, RefreshCw, AlertCircle } from "lucide-react";
 import { playTTS } from "@/hooks/useTTS";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -130,6 +130,11 @@ export default function PronunciationPractice({ targetText, targetPinyin, transl
   const [attempts, setAttempts] = useState(0);
   const recognitionRef = useRef<InstanceType<typeof SpeechRecognition> | null>(null);
 
+  // Dừng nhận diện giọng (tắt mic) khi unmount — tránh mic còn bật khi rời trang giữa lúc ghi âm.
+  useEffect(() => {
+    return () => { try { recognitionRef.current?.stop(); } catch { /* noop */ } };
+  }, []);
+
   // Kiểm tra hỗ trợ Web Speech API
   const isSupported = typeof window !== "undefined" &&
     ("SpeechRecognition" in window || "webkitSpeechRecognition" in window);
@@ -180,12 +185,14 @@ export default function PronunciationPractice({ targetText, targetPinyin, transl
       }
     };
 
+    // Functional update để đọc state MỚI NHẤT — tránh stale closure (state lúc tạo
+    // callback vẫn là giá trị cũ vì setState bất đồng bộ) khiến UI kẹt ở "recording".
     recognition.onend = () => {
-      if (state === "recording") setState("idle");
+      setState((s) => (s === "recording" ? "idle" : s));
     };
 
     recognition.start();
-  }, [isSupported, targetText, targetPinyin, onScore, state]);
+  }, [isSupported, targetText, targetPinyin, onScore]);
 
   const stopRecording = useCallback(() => {
     recognitionRef.current?.stop();

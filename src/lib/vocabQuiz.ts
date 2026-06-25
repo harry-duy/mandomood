@@ -40,48 +40,54 @@ export function generateVocabQuestions(
 
   const TYPES: GeneratedQuestion["type"][] = ["meaning", "choose_char", "pinyin"];
 
-  return targets.map((target, i) => {
-    // 3 đáp án nhiễu: từ khác cùng cấp, nghĩa khác nhau
-    const distractors = shuffle(pool.filter((w) => w.hanzi !== target.hanzi)).slice(0, 3);
-    const type = TYPES[i % TYPES.length];
+  return targets
+    .map((target, i): GeneratedQuestion | null => {
+      const type = TYPES[i % TYPES.length];
 
-    const explanation =
-      `${target.hanzi} (${target.pinyin}) = ${target.meaning}` +
-      (target.hanViet ? ` · Hán Việt: ${target.hanViet}` : "");
+      // Nhiễu phải khác hanzi target. Riêng dạng "pinyin" còn phải khác PINYIN
+      // (tiếng Trung nhiều từ đồng âm — nếu nhiễu đọc trùng target thì câu
+      //  "Từ nào đọc là X?" sẽ có >1 đáp án đúng). Đủ 3 nhiễu sạch mới ra câu.
+      const distractors = shuffle(
+        pool.filter(
+          (w) =>
+            w.hanzi !== target.hanzi &&
+            (type !== "pinyin" || w.pinyin !== target.pinyin)
+        )
+      ).slice(0, 3);
+      if (distractors.length < 3) return null;
 
-    if (type === "meaning") {
-      const options = shuffle([target, ...distractors].map((w) => w.meaning));
-      return {
-        id: `gen_${level}_${target.hanzi}`,
-        type,
-        question: `Từ 「${target.hanzi}」 (${target.pinyin}) có nghĩa là gì?`,
-        options,
-        correct: options.indexOf(target.meaning),
-        explanation,
-        level,
-      };
-    }
-    if (type === "pinyin") {
+      const explanation =
+        `${target.hanzi} (${target.pinyin}) = ${target.meaning}` +
+        (target.hanViet ? ` · Hán Việt: ${target.hanViet}` : "");
+
+      if (type === "meaning") {
+        const options = shuffle([target, ...distractors].map((w) => w.meaning));
+        return {
+          id: `gen_${level}_${target.hanzi}`,
+          type,
+          question: `Từ 「${target.hanzi}」 (${target.pinyin}) có nghĩa là gì?`,
+          options,
+          correct: options.indexOf(target.meaning),
+          explanation,
+          level,
+        };
+      }
+
+      // pinyin & choose_char: đáp án là hanzi
       const options = shuffle([target, ...distractors].map((w) => w.hanzi));
+      const question =
+        type === "pinyin"
+          ? `Từ nào đọc là "${target.pinyin}"?`
+          : `Từ nào có nghĩa là "${target.meaning}"?`;
       return {
         id: `gen_${level}_${target.hanzi}`,
         type,
-        question: `Từ nào đọc là "${target.pinyin}"?`,
+        question,
         options,
         correct: options.indexOf(target.hanzi),
         explanation,
         level,
       };
-    }
-    const options = shuffle([target, ...distractors].map((w) => w.hanzi));
-    return {
-      id: `gen_${level}_${target.hanzi}`,
-      type,
-      question: `Từ nào có nghĩa là "${target.meaning}"?`,
-      options,
-      correct: options.indexOf(target.hanzi),
-      explanation,
-      level,
-    };
-  });
+    })
+    .filter((q): q is GeneratedQuestion => q !== null);
 }

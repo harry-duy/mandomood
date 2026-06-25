@@ -13,7 +13,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   CheckCircle2, Circle, Flame, Clock, Sparkles, ChevronRight,
   BookOpen, Mic, Wand2, MessageCircle, Brain, Trophy, Star, Zap, RotateCcw, Layers, Music,
-  BellRing, X,
+  BellRing, X, PenTool,
 } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
 import { cn } from "@/lib/utils";
@@ -72,6 +72,7 @@ const GOAL_TASKS: Record<string, Task[]> = {
 const COMMON_TASKS: Task[] = [
   { id: "daily-quote", label: "Đọc câu nói hôm nay", sublabel: "Câu nói hay xoay vòng mỗi ngày", href: "/", icon: Star, minutes: 1, xpReward: 5, color: "#D4AF37" },
   { id: "flashcards", label: "Ôn thẻ đến hạn", sublabel: "SRS — không bao giờ quên", href: "/flashcards", icon: Zap, minutes: 5, xpReward: 25, color: "#8FAF8F" },
+  { id: "luyen-viet", label: "Luyện viết chữ Hán", sublabel: "Nét bút giúp nhớ mặt chữ lâu gấp đôi", href: "/luyen-viet", icon: PenTool, minutes: 5, xpReward: 15, color: "#C9878A" },
 ];
 
 // Tip của ngày theo giờ
@@ -326,7 +327,8 @@ function PushPrompt() {
 
   useEffect(() => {
     // Chỉ show khi chưa dismiss và chưa đăng ký
-    const wasDismissed = localStorage.getItem("mm_notif_prompt_dismissed") === "1";
+    let wasDismissed = false;
+    try { wasDismissed = localStorage.getItem("mm_notif_prompt_dismissed") === "1"; } catch { /* private mode */ }
     setDismissed(wasDismissed);
   }, []);
 
@@ -339,7 +341,7 @@ function PushPrompt() {
   };
 
   const handleDismiss = () => {
-    localStorage.setItem("mm_notif_prompt_dismissed", "1");
+    try { localStorage.setItem("mm_notif_prompt_dismissed", "1"); } catch { /* quota/private mode */ }
     setDismissed(true);
   };
 

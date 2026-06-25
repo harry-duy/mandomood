@@ -18,6 +18,7 @@ import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { getDemoPosts, DEMO_POSTS_STATIC } from "@/lib/communityDemo";
 import CommentSection from "@/components/ui/CommentSection";
 import { MOOD_COLORS, MOOD_EMOJI, MOOD_LABEL, LEVEL_LABEL } from "@/lib/utils";
 import { useTTS } from "@/hooks/useTTS";
@@ -36,45 +37,12 @@ interface Post {
   level?: string;
   like_count: number;
   likes: string[];
+  comment_count?: number;
   is_verified: boolean;
   created_at: string;
 }
 
-// ─── Demo posts (fallback) ────────────────────────────────────────────────────
-const DEMO_POSTS: Post[] = [
-  {
-    _id: "d1", author_name: "Hana 花花", author_image: null, type: "quote",
-    chinese_text: "再难的路，走着走着就习惯了。",
-    pinyin: "Zài nán de lù, zǒuzhe zǒuzhe jiù xíguàn le.",
-    translation: "Con đường dù khó đến đâu, đi mãi rồi cũng quen.",
-    mood: "motivation", level: "hsk3", like_count: 148, likes: [], is_verified: false,
-    created_at: new Date(Date.now() - 3600000).toISOString(),
-  },
-  {
-    _id: "d2", author_name: "Trà My 🌸", author_image: null, type: "quote",
-    chinese_text: "有时候，沉默是最好的回答。",
-    pinyin: "Yǒushíhòu, chénmò shì zuì hǎo de huídá.",
-    translation: "Đôi khi, im lặng là câu trả lời tốt nhất.",
-    mood: "aesthetic", level: "hsk3", like_count: 92, likes: [], is_verified: true,
-    created_at: new Date(Date.now() - 7200000).toISOString(),
-  },
-  {
-    _id: "d3", author_name: "Kevin Hoàng", author_image: null, type: "story",
-    chinese_text: "那天下雨，她站在咖啡馆门口，低头看手机。我鼓起勇气走过去说：\"借我一把伞，好吗？\"",
-    pinyin: "Nà tiān xià yǔ, tā zhàn zài kāfēiguǎn ménkǒu...",
-    translation: "Hôm đó trời mưa, cô ấy đứng trước cửa quán cà phê, cúi đầu nhìn điện thoại. Tôi lấy hết can đảm bước tới hỏi: \"Cho tôi mượn một chiếc ô được không?\"",
-    mood: "romantic", level: "hsk4", like_count: 67, likes: [], is_verified: false,
-    created_at: new Date(Date.now() - 86400000).toISOString(),
-  },
-  {
-    _id: "d4", author_name: "Ngọc Ánh", author_image: null, type: "question",
-    chinese_text: "\"缘分\" 和 \"命运\" 有什么区别？",
-    pinyin: "\"Yuánfèn\" hé \"mìngyùn\" yǒu shénme qūbié?",
-    translation: "\"Duyên phận\" và \"số mệnh\" khác nhau như thế nào?",
-    mood: "aesthetic", level: "hsk5", like_count: 34, likes: [], is_verified: false,
-    created_at: new Date(Date.now() - 172800000).toISOString(),
-  },
-];
+// Bài mẫu (fallback) đã chuyển sang @/lib/communityDemo — trộn ngẫu nhiên mỗi lần.
 
 const MOODS = ["all", "romantic", "healing", "motivation", "sad", "friendship", "aesthetic", "funny"];
 const LEVELS = ["beginner", "hsk1", "hsk2", "hsk3", "hsk4", "hsk5", "hsk6"];
@@ -231,7 +199,7 @@ function PostCard({ post, myEmail, onLike }: {
         </div>
 
         {/* Comments */}
-        <CommentSection postId={post._id} />
+        <CommentSection postId={post._id} initialCount={post.comment_count ?? 0} />
       </div>
     </motion.div>
   );
@@ -436,7 +404,7 @@ function PostForm({ onPosted }: { onPosted: (post: Post) => void }) {
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function CommunityPage() {
   const { data: session } = useSession();
-  const [posts, setPosts] = useState<Post[]>(DEMO_POSTS);
+  const [posts, setPosts] = useState<Post[]>(DEMO_POSTS_STATIC);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [sort, setSort] = useState<"new" | "hot">("new");
@@ -455,11 +423,11 @@ export default function CommunityPage() {
         setPosts(data.posts);
         setHasMore(data.posts.length === 20); // API limit = 20
       } else {
-        setPosts(DEMO_POSTS);
+        setPosts(getDemoPosts({ mood: moodFilter, sort }));
         setHasMore(false);
       }
     } catch {
-      setPosts(DEMO_POSTS);
+      setPosts(getDemoPosts({ mood: moodFilter, sort }));
       setHasMore(false);
     } finally {
       setLoading(false);

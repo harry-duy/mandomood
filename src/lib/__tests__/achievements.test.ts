@@ -52,3 +52,29 @@ test("badge thi cu: test-10 va test-perfect", () => {
   const half = evaluateBadges({ testsTaken: 5 }).find((b) => b.id === "test-10")!;
   assert.equal(half.pct, 50);
 });
+
+test("badge tu vung: vocab-saver theo nguong 30/100/300", () => {
+  const none = evaluateBadges({ wordsSaved: 0 });
+  assert.ok(!none.find((b) => b.id === "vocab-saver-30")!.isEarned);
+
+  // 30 tu -> dat moc dau, chua dat moc 100/300
+  const m30 = evaluateBadges({ wordsSaved: 30 });
+  assert.ok(m30.find((b) => b.id === "vocab-saver-30")!.isEarned);
+  assert.ok(!m30.find((b) => b.id === "vocab-saver-100")!.isEarned);
+  assert.ok(!m30.find((b) => b.id === "vocab-saver-300")!.isEarned);
+
+  // 300 tu -> dat ca 3 moc
+  const m300 = evaluateBadges({ wordsSaved: 300 });
+  assert.ok(m300.find((b) => b.id === "vocab-saver-30")!.isEarned);
+  assert.ok(m300.find((b) => b.id === "vocab-saver-100")!.isEarned);
+  assert.ok(m300.find((b) => b.id === "vocab-saver-300")!.isEarned);
+
+  // tien do 50% khi luu 15 tu (moc 30)
+  const half = evaluateBadges({ wordsSaved: 15 }).find((b) => b.id === "vocab-saver-30")!;
+  assert.equal(half.pct, 50);
+
+  // pct kep 0..100 du luu rat nhieu
+  for (const b of evaluateBadges({ wordsSaved: 9999 })) {
+    assert.ok(b.pct >= 0 && b.pct <= 100);
+  }
+});

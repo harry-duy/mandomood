@@ -20,6 +20,7 @@ import DailyGoalRing from "@/components/ui/DailyGoalRing";
 import DueReviewCard from "@/components/ui/DueReviewCard";
 import { useAppStore } from "@/store/useAppStore";
 import { cn, readJSON } from "@/lib/utils";
+import { dayKeyLocal } from "@/lib/streak";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 interface Quote {
@@ -126,20 +127,23 @@ export default function HomePage() {
     const history = readJSON<Array<{ createdAt: string }>>("mm_story_history", []);
     for (const h of history) {
       const d = new Date(h.createdAt);
-      if (!isNaN(d.getTime())) days.add(d.toISOString().slice(0, 10));
+      if (!isNaN(d.getTime())) days.add(dayKeyLocal(d));
     }
     // Daily-plan keys: mm_daily_plan_YYYY_M_D
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i) ?? "";
-      if (!key.startsWith("mm_daily_plan_")) continue;
-      const parts = key.replace("mm_daily_plan_", "").split("_");
-      if (parts.length !== 3) continue;
-      const [y, m, dd] = parts;
-      const plan = readJSON<{ checked?: Record<string, boolean> }>(key, {});
-      if (Object.values(plan.checked ?? {}).some(Boolean)) {
-        days.add(`${y}-${String(m).padStart(2, "0")}-${String(dd).padStart(2, "0")}`);
+    // Bọc try/catch: Safari private mode có thể ném khi truy cập localStorage.
+    try {
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i) ?? "";
+        if (!key.startsWith("mm_daily_plan_")) continue;
+        const parts = key.replace("mm_daily_plan_", "").split("_");
+        if (parts.length !== 3) continue;
+        const [y, m, dd] = parts;
+        const plan = readJSON<Record<string, boolean>>(key, {});
+        if (Object.values(plan).some(Boolean)) {
+          days.add(`${y}-${String(m).padStart(2, "0")}-${String(dd).padStart(2, "0")}`);
+        }
       }
-    }
+    } catch { /* localStorage bị chặn — bỏ qua phần daily-plan */ }
     setLocalActiveDays(Array.from(days));
   }, []);
 
@@ -154,10 +158,10 @@ export default function HomePage() {
   const activeDays = useMemo(() => {
     // Backend streak: N consecutive days counting back from today
     const backendDays = Array.from({ length: Math.min(streakDays, 7) }, (_, i) =>
-      new Date(nowMs - i * 86400000).toISOString().slice(0, 10)
+      dayKeyLocal(new Date(nowMs - i * 86400000))
     );
     // Merge với localStorage (chỉ giữ 7 ngày gần nhất)
-    const cutoff = new Date(nowMs - 6 * 86400000).toISOString().slice(0, 10);
+    const cutoff = dayKeyLocal(new Date(nowMs - 6 * 86400000));
     const merged = new Set([...backendDays, ...localActiveDays.filter(d => d >= cutoff)]);
     return Array.from(merged);
   }, [streakDays, nowMs, localActiveDays]);

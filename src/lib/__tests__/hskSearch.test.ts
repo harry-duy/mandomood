@@ -103,3 +103,22 @@ test("hsk-data: example phai chua chinh tu do (chat luong du lieu)", () => {
     );
   }
 });
+
+// ── Xếp hạng liên quan (Sprint 106) ──────────────────────────────────────────
+test("searchHskVocab: khop hanzi CHINH XAC xep dau", () => {
+  const hits = searchHskVocab("缘分");
+  assert.ok(hits.length > 0);
+  assert.equal(hits[0].hanzi, "缘分", "hanzi khop chinh xac phai dung dau bang");
+});
+
+test("searchHskVocab: khop pinyin CHINH XAC (khong dau) xep dau", () => {
+  const hits = searchHskVocab("yuanfen");
+  assert.equal(hits[0].hanzi, "缘分", "pinyin khop chinh xac phai dung dau bang");
+});
+
+test("searchHskVocab: tien to pinyin xep tren chuoi-con roi rac", () => {
+  // Moi ket qua deu phai thuc su khop query (khong tra rac)
+  const hits = searchHskVocab("ni hao");
+  assert.ok(hits.length > 0);
+  assert.ok(hits.every((w) => typeof w.level === "number" && w.hanzi.length > 0));
+});

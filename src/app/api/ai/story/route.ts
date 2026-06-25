@@ -8,8 +8,9 @@ import { generateStory, type StoryLevel, type StoryMood } from "@/lib/openai";
 import { connectDB } from "@/lib/mongodb";
 import Lesson from "@/models/Lesson";
 import { checkRateLimit, getRateLimitHeaders } from "@/lib/ratelimit";
-import { getPremiumStatus, consumeDailyQuota } from "@/lib/premiumServer";
+import { getPremiumStatus, consumeDailyQuota, refundDailyQuota } from "@/lib/premiumServer";
 import { FREE_DAILY_STORY } from "@/lib/premium";
+import { sanitizePromptInput } from "@/lib/sanitize";
 
 export async function POST(req: NextRequest) {
   const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
@@ -21,6 +22,7 @@ export async function POST(req: NextRequest) {
   }
   // Premium/trial: không giới hạn. Free: FREE_DAILY_STORY truyện/ngày.
   const { email, source } = await getPremiumStatus();
+  let consumedQuota = false;
   if (source === null) {
     if (email) {
       const quota = await consumeDailyQuota(email, "story", FREE_DAILY_STORY);
@@ -30,6 +32,7 @@ export async function POST(req: NextRequest) {
           code: "UPGRADE_REQUIRED",
         }, { status: 402 });
       }
+      consumedQuota = true;
     } else if (!checkRateLimit(`story-day:${ip}`, FREE_DAILY_STORY, 24 * 3600 * 1000)) {
       return NextResponse.json({
         error: `Khách chưa đăng nhập được ${FREE_DAILY_STORY} truyện/ngày. Đăng nhập để nhận 30 ngày Premium miễn phí 🎁`,
@@ -42,7 +45,7 @@ export async function POST(req: NextRequest) {
     const {
       level = "hsk2",
       mood = "healing",
-      theme,
+      theme: rawTheme,
       save = false,
     } = body as {
       level: StoryLevel;
@@ -57,6 +60,10 @@ export async function POST(req: NextRequest) {
     if (!validLevels.includes(level) || !validMoods.includes(mood)) {
       return NextResponse.json({ error: "Level hoặc mood không hợp lệ" }, { status: 400 });
     }
+
+    // Làm sạch theme (input người dùng) trước khi nhúng vào prompt AI:
+    // cắt độ dài (chống tốn token) + gom xuống dòng (giảm prompt injection).
+    const theme = sanitizePromptInput(rawTheme, 120) || undefined;
 
     const story = await generateStory(level, mood, theme);
 
@@ -79,6 +86,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ story });
   } catch (error) {
+    if (consumedQuota && email) await refundDailyQuota(email, "story");
     console.error("[POST /api/ai/story]", error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Lỗi generate story" },

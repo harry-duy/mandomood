@@ -7,6 +7,8 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-config";
 import { connectDB } from "@/lib/mongodb";
 import User from "@/models/User";
+import { levelProgressPct } from "@/lib/levels";
+import { effectiveWeeklyXp } from "@/lib/weeklyXp";
 
 export async function GET() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -24,19 +26,15 @@ export async function GET() {
     const user = await User.findOne({ email: session.user.email }).lean() as Record<string, unknown> | null;
     if (!user) return NextResponse.json({ error: "Không tìm thấy user" }, { status: 404 });
 
-    // Tính XP tuần này (reset mỗi thứ 2)
-    const weeklyXp   = (user.weekly_xp as number) ?? 0;
+    // XP tuần này — chỉ tính nếu còn trong tuần hiện tại (reset lười → tránh số tuần cũ).
+    const weeklyXp   = effectiveWeeklyXp(user.weekly_xp, user.weekly_xp_reset, new Date());
     const totalXp    = (user.xp as number) ?? 0;
     const streak     = (user.streak_days as number) ?? 0;
     const level      = (user.level as string) ?? "beginner";
     const premium    = (user.premium as boolean) ?? false;
 
-    // Tính level progress
-    const XP_PER_LEVEL: Record<string, number> = {
-      beginner: 100, hsk1: 300, hsk2: 600, hsk3: 1200, hsk4: 2400, hsk5: 5000,
-    };
-    const nextLevelXp = XP_PER_LEVEL[level] ?? 100;
-    const levelProgress = Math.min(100, Math.round((totalXp % nextLevelXp) / nextLevelXp * 100));
+    // Tiến độ cấp — dùng nguồn chân lý chung @/lib/levels (khớp /api/user/progress).
+    const levelProgress = levelProgressPct(totalXp, level);
 
     return NextResponse.json({
       weekly_xp:     weeklyXp,

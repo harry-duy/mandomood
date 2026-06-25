@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { readJSON } from "@/lib/utils";
+import { sumDailyXp } from "@/lib/dailyXp";
 import { useProgress } from "@/hooks/useProgress";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -85,8 +86,19 @@ function buildNotifications(): Notification[] {
     });
   });
 
-  // 2. XP milestone
-  const xpTotal: number = readJSON<number>("mm_xp_total", 0);
+  // 2. XP milestone — cộng tổng từ các khoá mm_xp_YYYY-MM-DD (khoá tổng mm_xp_total
+  // không hề được ghi → trước đây luôn 0 → mốc XP không bao giờ hiện).
+  const xpTotal: number = (() => {
+    if (typeof localStorage === "undefined") return 0;
+    try {
+      const entries: [string, string | null][] = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k) entries.push([k, localStorage.getItem(k)]);
+      }
+      return sumDailyXp(entries);
+    } catch { return 0; }
+  })();
   const MILESTONES = [100, 500, 1000, 2500, 5000];
   for (const ms of MILESTONES) {
     if (xpTotal >= ms) {
@@ -116,8 +128,8 @@ function buildNotifications(): Notification[] {
         return `${hd.getFullYear()}-${String(hd.getMonth()+1).padStart(2,"0")}-${String(hd.getDate()).padStart(2,"0")}` === key;
       });
       const planKey = `mm_daily_plan_${d.getFullYear()}_${d.getMonth()+1}_${d.getDate()}`;
-      const plan = readJSON<{ checked?: Record<string, boolean> }>(planKey, {});
-      const hasTask = Object.values(plan.checked ?? {}).some(Boolean);
+      const plan = readJSON<Record<string, boolean>>(planKey, {});
+      const hasTask = Object.values(plan).some(Boolean);
       if (hasStory || hasTask) { s++; d.setDate(d.getDate() - 1); }
       else break;
     }
@@ -140,8 +152,8 @@ function buildNotifications(): Notification[] {
 
   // 4. Daily plan hôm nay
   const todayPlanKey = `mm_daily_plan_${now.getFullYear()}_${now.getMonth()+1}_${now.getDate()}`;
-  const todayPlan = readJSON<{ checked?: Record<string, boolean> }>(todayPlanKey, {});
-  const tasksDone = Object.values(todayPlan.checked ?? {}).filter(Boolean).length;
+  const todayPlan = readJSON<Record<string, boolean>>(todayPlanKey, {});
+  const tasksDone = Object.values(todayPlan).filter(Boolean).length;
   if (tasksDone > 0) {
     notifs.push({
       id: "plan_today",

@@ -4,23 +4,26 @@
  * StreakCalendar — Hiển thị 7 ngày gần nhất
  * - Mỗi ô = 1 ngày; màu tùy mood của hoạt động hôm đó
  * - Ngày hôm nay highlight viền đỏ
- * - Đọc từ store (streak_data) hoặc fallback
+ * - Khoá ngày theo GIỜ ĐỊA PHƯƠNG qua buildWeekDays (@/lib/streak) → đồng bộ với
+ *   activeDays (local) + đúng cho user VN (trước đây dùng toISOString/UTC → lệch ô).
  */
 
 import { useMemo } from "react";
 import { cn } from "@/lib/utils";
 import { Flame } from "lucide-react";
+import { buildWeekDays } from "@/lib/streak";
 
 interface DayData {
   date: Date;
   active: boolean;
+  isToday: boolean;
   mood?: string;
   xp?: number;
 }
 
 interface Props {
   currentStreak: number;
-  /** Mảng ISO date string của những ngày đã học: ["2026-05-27", "2026-05-28", ...] */
+  /** Mảng khoá ngày (local) YYYY-MM-DD của những ngày đã học. */
   activeDays?: string[];
   /** Mood hôm nay */
   todayMood?: string;
@@ -41,25 +44,16 @@ const DAY_LABELS = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"];
 
 export default function StreakCalendar({ currentStreak, activeDays = [], todayMood }: Props) {
   const days = useMemo<DayData[]>(() => {
-    const today = new Date();
-    const result: DayData[] = [];
-
-    for (let i = 6; i >= 0; i--) {
-      const d = new Date(today);
-      d.setDate(today.getDate() - i);
-      const iso = d.toISOString().slice(0, 10);
-      result.push({
-        date: d,
-        active: activeDays.includes(iso),
-        mood: i === 0 ? todayMood : undefined,
-        xp: activeDays.includes(iso) ? (iso.split("").reduce((h, c) => (h * 31 + c.charCodeAt(0)) | 0, 0) % 40 + 10) : 0,
-      });
-    }
-
-    return result;
+    return buildWeekDays(activeDays).map((d) => ({
+      date: d.date,
+      active: d.active,
+      isToday: d.isToday,
+      mood: d.isToday ? todayMood : undefined,
+      // XP giả lập ổn định theo khoá ngày (local) để tooltip không nhảy số mỗi render.
+      xp: d.active ? (d.key.split("").reduce((h, c) => (h * 31 + c.charCodeAt(0)) | 0, 0) % 40 + 10) : 0,
+    }));
   }, [activeDays, todayMood]);
 
-  const todayIndex = 6; // last element is today
   const weekDone = days.filter((d) => d.active).length;
 
   return (
@@ -82,7 +76,7 @@ export default function StreakCalendar({ currentStreak, activeDays = [], todayMo
       {/* Calendar dots */}
       <div className="flex items-end justify-between gap-1">
         {days.map((day, i) => {
-          const isToday = i === todayIndex;
+          const isToday = day.isToday;
           const dotColor = day.active
             ? (MOOD_DOT_COLORS[day.mood ?? "default"] ?? MOOD_DOT_COLORS.default)
             : "rgba(255,255,255,0.06)";
