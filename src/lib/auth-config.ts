@@ -8,6 +8,7 @@ import type { NextAuthOptions } from "next-auth";
 import { connectDB } from "./mongodb";
 import User from "@/models/User";
 import { premiumSource, daysLeft, trialEndDate } from "@/lib/premium";
+import { isAdminEmail } from "@/lib/adminAuth";
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -88,10 +89,11 @@ export const authOptions: NextAuthOptions = {
             (session.user as any).trialDaysLeft = source === "trial"
               ? daysLeft(u.trial_until as Date | undefined)
               : 0;
-            // Expose is_admin — chỉ email trong ADMIN_EMAILS được quyền
-            const adminEmails = (process.env.ADMIN_EMAILS ?? "ngothanhduy04@gmail.com").split(",").map(e => e.trim());
+            // Expose is_admin — dùng helper CHUNG (case-insensitive) để KHỚP authz ở
+            // các route admin. Trước đây so case-sensitive → admin có chữ HOA trong
+            // email bị ẩn toàn bộ UI admin dù API (đã sửa) cho phép.
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            (session.user as any).is_admin = adminEmails.includes(token.email as string);
+            (session.user as any).is_admin = isAdminEmail(token.email as string);
           }
         } catch (e) {
           console.error("[NextAuth session]", e);

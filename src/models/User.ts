@@ -1,4 +1,5 @@
 import mongoose, { Schema, Document } from "mongoose";
+import { nextMondayVN } from "@/lib/weeklyXp";
 
 export interface IUser extends Document {
   email: string;
@@ -47,7 +48,7 @@ const UserSchema = new Schema<IUser>(
     },
     xp: { type: Number, default: 0 },
     weekly_xp: { type: Number, default: 0 },
-    weekly_xp_reset: { type: Date, default: () => getNextMonday() },
+    weekly_xp_reset: { type: Date, default: () => nextMondayVN() },
     streak: { type: Number, default: 0 },
     streak_days: { type: Number, default: 0 },
     last_active: { type: Date, default: Date.now },
@@ -74,15 +75,6 @@ const UserSchema = new Schema<IUser>(
   },
   { timestamps: { createdAt: "created_at", updatedAt: "updated_at" } }
 );
-
-function getNextMonday(): Date {
-  const d = new Date();
-  const day = d.getDay();
-  const diff = day === 0 ? 1 : 8 - day;
-  d.setDate(d.getDate() + diff);
-  d.setHours(0, 0, 0, 0);
-  return d;
-}
 
 UserSchema.index({ xp: -1 });
 UserSchema.index({ weekly_xp: -1 });

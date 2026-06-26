@@ -6207,3 +6207,560 @@ User chọn hướng **"Chuẩn bị deploy"**. Đã làm:
 
 ### Trạng thái
 Codebase sẵn sàng deploy: 0 lỗi build, 230 test, ~18 fix + nhiều hardening/test đang chờ. Hành động kế tiếp THUỘC VỀ USER: **push từ máy** (git sandbox hỏng index nên Claude không push được). Sau deploy → smoke test theo `DEPLOY_READINESS.md`.
+
+---
+
+## Sprint 140 — 🔴 BUG THẬT: crash mọi route AI khi chỉ cấu hình Gemini + làm cứng parse/chấm AI (2026-06-25)
+
+### 🔴 Lỗi nghiêm trọng (production-down tiềm ẩn) — OpenAI client dựng EAGER ở top-level
+`src/lib/openai.ts` khởi tạo `const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })` ngay top-level. SDK OpenAI v4 **NÉM lỗi NGAY trong constructor** nếu thiếu `OPENAI_API_KEY`. Nhưng `DEPLOY_READINESS.md` ghi rõ được phép deploy **chỉ với `GEMINI_API_KEY`** (OpenAI HOẶC Gemini). Trong cấu hình Gemini-only đó, **mọi import `"@/lib/openai"` sẽ throw lúc nạp module** → toàn bộ route AI (`/api/ai/story`, `/grade-answer`, `/chat`, `/word-hint`, `/analyze-upload`) **500 trên MỌI request** dù Gemini đã cấu hình đúng. Reproduce: `env -u OPENAI_API_KEY GEMINI_API_KEY=x import('@/lib/openai')` → "OPENAI_API_KEY is missing or empty".
+- **Fix:** lazy-hoá client. Bỏ default export `openai` (đối chiếu: KHÔNG nơi nào import default — chỉ named export được dùng). Thêm `getOpenAI()` dựng client LƯỜI, chỉ khi thực sự đi nhánh OpenAI; nếu thiếu key thì ném lỗi có ngữ cảnh (đã có fallback ở route). 7 call-site `openai.chat.completions.create` → `getOpenAI().chat...`. Sau fix: import module Gemini-only **không còn throw** (đã verify).
+
+### 🟠 Làm cứng parse JSON từ model — đồng bộ độ bền Gemini ↔ OpenAI
+Nhánh Gemini có sẵn repair mạnh (bỏ fence, trích object ngoài cùng theo độ sâu ngoặc, xoá dấu phẩy cuối khi bị truncate ở max_tokens). Nhưng **6 chỗ parse phía OpenAI dùng `JSON.parse(content)` trần** → JSON hỏng/bị cắt = 500 (hoặc rơi fallback giảm chất lượng). Bất đối xứng thật.
+- **Fix:** trích logic repair thành hàm CHUNG `repairModelJson<T>()` (export). Refactor `generateGeminiJson` dùng nó + thay cả 6 site OpenAI (`story`, `analyzeImage`, `analyzeText`, `wordHint`, `checkGuess`, `grade`). Giờ 2 nhánh cùng chịu được fence/text thừa/dấu phẩy cuối.
+
+### 🟠 Làm cứng điểm chấm AI trước khi tới UI — `sanitizeGrade()`
+`gradeAnswer` trả thẳng `score` AI sinh (`...result`) cho client. AI có thể ảo giác `score>100`, âm, `NaN`, hoặc kiểu sai → UI hiện điểm rác. (Song song cách clamp leaderboard Sprint 135.)
+- **Fix:** thêm `sanitizeGrade()` — kẹp `score` 0–100 + làm tròn, `correct` ép boolean nghiêm ngặt, `errors` non-array → `[]`, `feedback/suggestion` ép chuỗi. Áp cho CẢ nhánh Gemini lẫn OpenAI của `gradeAnswer`.
+
+### Test (mới, +11) — `src/lib/__tests__/openai.test.ts`
+Lazy client giờ cho phép import `openai.ts` trong test (trước đây throw nếu thiếu key). Khoá hợp đồng 2 hàm thuần mới:
+- `repairModelJson` (5): parse sạch; bỏ fence ```json; trích khi có text thừa; sửa dấu phẩy cuối `[2,3,],}`; ném "no JSON object" khi không có object.
+- `sanitizeGrade` (6): clamp >100→100, <0→0, NaN→0, làm tròn 87.6→88, `correct:"yes"`→false, errors/feedback rác → []/"".
+
+### Verify
+- `tsc --noEmit`: **0 lỗi**. `npm test`: **241/241 PASS** (230 + 11). `eslint src/lib`: 0 error.
+- openai.ts sửa python write-through (mount đang đúng); test file tạo Write→outputs→`cp` (theo [[mandomood-sandbox-workarounds]]).
+
+### Trạng thái
+Tìm thấy **1 bug production-down thật** (chưa lộ vì hiện có OPENAI_API_KEY, nhưng sẽ sập ngay nếu deploy Gemini-only như tài liệu cho phép) + 2 hardening (parse JSON, điểm chấm). Đây là loại lỗi tsc/test KHÔNG bắt được (chỉ lộ lúc runtime với env cụ thể). Vẫn chờ DEPLOY (push từ máy user — git sandbox corrupt index). **Gợi ý:** thêm dòng vào DEPLOY_READINESS — cấu hình Gemini-only giờ đã an toàn sau fix này.
+
+---
+
+## Sprint 141 — 🔴 LỖ HỔNG THANH TOÁN: trả tiền gói tháng nhưng được cấp gói năm (2026-06-25)
+
+### 🔴 Lỗi nghiêm trọng (mất doanh thu) — server tin `priceId` từ client, cấp quyền theo `plan`
+`/api/stripe/checkout` nhận CẢ `priceId` LẪN `plan` từ body client rồi:
+- tính tiền theo `priceId` (giá client gửi),
+- nhưng webhook `checkout.session.completed` cấp thời hạn premium theo `metadata.plan` (`premiumUntilForPlan(plan)`).
+
+3 price ID đều là **`NEXT_PUBLIC_*`** → công khai, ai mở DevTools cũng thấy cả 3. **Khai thác:** gọi checkout với `plan: "yearly"` nhưng `priceId` = giá gói **THÁNG** → Stripe thu tiền 1 THÁNG, webhook cấp nguyên **1 NĂM** premium. Tương tự có thể trả tiền tháng nhận quyền dài hơn. `priceId` cũng KHÔNG được kiểm tra có thuộc 3 gói hợp lệ không. tsc/test không bắt được (lỗi logic nghiệp vụ runtime).
+
+- **Fix (bind giá ↔ gói phía server):**
+  - Thêm map `PRICE_BY_PLAN` lấy price ID từ **env phía server**; **bỏ qua `priceId` client gửi** — chỉ dùng `plan` đã validate để tra giá. Giờ tiền thu LUÔN khớp thời hạn cấp.
+  - Thêm hàm THUẦN `normalizePlan(plan)` + hằng `VALID_PLANS` vào `src/lib/premium.ts`: chỉ chấp nhận đúng `monthly|yearly|lifetime` (phân biệt hoa thường, chặn kiểu sai) → giá trị lạ trả `null` → checkout 400. Cũng bảo vệ `premiumUntilForPlan` khỏi nhận plan rác.
+  - Gói chưa cấu hình giá env → 503 (thay vì tạo session lỗi mơ hồ).
+
+### Defense in depth
+metadata.plan giờ = plan đã validate + giá đã bind theo plan ⇒ webhook tin được metadata.plan (giá thu khớp). Không đổi luồng webhook.
+
+### Test (mới, +2) — `premium.test.ts`
+- `normalizePlan` chấp nhận đúng 3 gói + `VALID_PLANS` đúng thứ tự.
+- Chặn `"free"`, `"YEARLY"` (hoa/thường), `""`, `undefined`, `null`, số, object → `null`.
+
+### Verify
+- `tsc --noEmit`: **0 lỗi**. `npm test`: **243/243 PASS** (241 + 2). `eslint` (file sửa): 0 error.
+- premium.ts + checkout route + test sửa python write-through (mount đang đúng, theo [[mandomood-sandbox-workarounds]]).
+
+### Trạng thái
+Bịt lỗ hổng cho phép **mua gói dài giá gói ngắn** (thất thoát doanh thu trực tiếp). Đây là loại bug nghiệp vụ chỉ lộ khi suy luận luồng tiền↔quyền, tsc/test không thấy. Vẫn chờ DEPLOY (push từ máy user — git sandbox corrupt index). Sau deploy: thử checkout từng gói + đối chiếu `premium_until` trong DB khớp số tiền Stripe thu.
+
+---
+
+## Sprint 142 — 🟠 Quota AI free reset SAI múi giờ (07:00 VN thay vì nửa đêm) (2026-06-25)
+
+### Audit authz routes (sạch) trước khi tìm bug
+Rà nhanh: admin routes (`/api/admin/users`, `/export`, `/analytics`) đều chặn theo `ADMIN_EMAILS`; `/api/push/send` cần `PUSH_ADMIN_SECRET` (fail-closed nếu thiếu secret); mọi route `/api/user/*` (vocabulary, voice, saved-quotes, weekly-report, sync, quota, progress) đều scope theo `session.user.email`, KHÔNG nhận email/userId từ request → **không có IDOR**. community/like + comments nguyên tử, có rate-limit. ⇒ authz sạch.
+
+### 🟠 Bug thật — ranh giới "mỗi ngày" của quota AI dùng UTC, lệch giờ VN
+`premiumServer.consumeDailyQuota`/`refundDailyQuota` và `/api/user/quota` chốt ngày bằng `new Date().toISOString().slice(0,10)` = **ngày UTC**. Vercel chạy UTC nên quota free (3 truyện/10 chat/5 upload mỗi ngày) **reset lúc 07:00 sáng giờ VN**, KHÔNG phải nửa đêm. Lệch với toàn bộ phần còn lại của app vốn đã sửa theo giờ VN (streak/mood/lịch — `dayKeyLocal`). Hệ quả user-facing: dùng app khuya (0–7h VN) vẫn bị tính quota "hôm qua"; badge "còn N/3" reset giữa buổi sáng gây khó hiểu.
+- Lưu ý kỹ thuật: `dayKeyLocal` (streak) dùng `getFullYear/Month/Date` = giờ LOCAL — đúng ở CLIENT (trình duyệt VN) nhưng ở SERVER (Vercel=UTC) vẫn ra UTC. Nên quota (chạy server) cần offset VN tường minh, không tái dùng được `dayKeyLocal`.
+
+- **Fix:** thêm hàm THUẦN `vnDateKey(d)` vào `premium.ts` = `toISOString` sau khi +7h (VN cố định UTC+7, không DST). Thay cả **3 chỗ** chốt ngày quota (consume, refund, hiển thị `/api/user/quota`) sang `vnDateKey()` → reset đúng **00:00 VN**, đồng nhất 3 nơi (nếu lệch nhau thì badge hiện sai "used"). Các `toISOString` còn lại ở admin export chỉ là tên file/ngày tạo CSV → giữ UTC, không liên quan ranh giới ngày.
+
+### Test (mới, +1) — `premium.test.ts`
+`vnDateKey`: 16:30 UTC→cùng ngày VN; 17:30 UTC→sang ngày VN kế (00:30 VN); 23:00 UTC→ngày VN sau; 00:00 UTC→cùng ngày VN (07:00 VN). Khoá đúng mốc lật ngày 17:00 UTC.
+
+### Verify
+- `tsc --noEmit`: **0 lỗi**. `npm test`: **244/244 PASS** (243 + 1). `eslint` (file sửa): 0 error.
+- 4 file sửa python write-through (mount đang đúng, theo [[mandomood-sandbox-workarounds]]).
+
+### Lưu ý vận hành
+Sau deploy, ở lần lật ngày đầu tiên giữa 00:00–07:00 VN, vài user sẽ được reset quota SỚM hơn 1 lần (vì so ngày chuyển từ UTC sang VN) — vô hại, đúng hành vi mong muốn. Vẫn chờ DEPLOY (push từ máy user — git sandbox corrupt index).
+
+### Trạng thái
+Quota AO free giờ reset đúng nửa đêm VN, đồng bộ giờ với streak/mood/lịch. Bug UX thật (sai mốc reset) tsc/test không bắt được, chỉ lộ khi suy luận múi giờ server↔người dùng.
+
+---
+
+## Sprint 143 — 🟠 limit=0 → trả TẤT CẢ: 2 route public chưa kẹp phân trang (over-fetch) (2026-06-25)
+
+### Audit cron + sync + data-integrity (sạch)
+- **Cron `/api/push/due-reminder`:** chặn fail-closed bằng `Authorization: Bearer <CRON_SECRET>` hoặc `?secret=` (thiếu CRON_SECRET → 401).
+- **cloudSync:** offline-first, thất bại không đụng local; merge có tombstone, đã test kỹ.
+- **search route:** regex được escape `[.*+?^${}()|[\]\\]` → chống ReDoS/regex injection. ✓
+
+### 🟠 Bug thật — `limit` lấy thô từ query, KHÔNG kẹp (cùng lớp lỗi đã fix ở /api/lessons Sprint 123)
+Đã có sẵn helper THUẦN `parsePagination` (đã test) chống `limit=0` (Mongo `.limit(0)` = trả TẤT CẢ), `NaN` (`?limit=abc` → `.limit(NaN)`), âm, và quá lớn. Nhưng 2 route public còn tự parse tay, BỎ SÓT:
+1. **`/api/search`** — `Math.min(parseInt(limit ?? "10"), 30)`: `?limit=0`→`.limit(0)` trả hết kết quả; `?limit=abc`→`Math.min(NaN,30)=NaN`→`.limit(NaN)`.
+2. **`/api/quotes`** — `parseInt(limit ?? "10")` **không kẹp gì cả**: `?limit=0` trả TOÀN BỘ bảng quotes (over-fetch/DoS + chi phí); `?limit=999999` payload khổng lồ; `?page=0` → skip âm; `Math.ceil(total/limit)` với limit=0 → **totalPages = Infinity** lọt vào response.
+
+- **Fix:** cả 2 route dùng `parsePagination(page, limit, {defaultLimit, maxLimit})` (search maxLimit=30, quotes maxLimit=50). Giờ limit luôn ∈ [1,max], page ≥ 1, skip ≥ 0, totalPages hữu hạn.
+- Đã quét các route `.limit(` khác: community/posts (`limit=20` hằng, page có `|| 1` chặn NaN), admin/leaderboard/comments/feedback/vocabulary đều dùng **hằng số** → an toàn, không cần sửa.
+
+### Verify
+- `tsc --noEmit`: **0 lỗi**. `npm test`: **244/244 PASS** (không đổi — chỉ thay cách parse, helper đã có test riêng). `eslint` (2 file): 0 error.
+- 2 route sửa python write-through (mount đang đúng, theo [[mandomood-sandbox-workarounds]]).
+
+### Trạng thái
+2 route public cuối cùng còn lọt `limit=0/NaN` giờ đã kẹp qua helper chung. Toàn bộ endpoint trả danh sách đều an toàn over-fetch. Bug DoS/chi phí nhẹ, tsc/test không bắt được (lỗi nhận input runtime). Vẫn chờ DEPLOY (push từ máy user — git sandbox corrupt index).
+
+---
+
+## Sprint 144 — 🟠 SSRF nhẹ: ?voice= nhúng thẳng vào path URL ElevenLabs chưa validate (2026-06-25)
+
+### Audit upload/TTS (kết quả)
+- **`/api/ai/analyze-upload`:** ảnh kẹp 10MB + lọc mime; text (cả .txt lẫn JSON body) đưa qua `analyzeTextContent` vốn `text.slice(0,3000)` trong prompt → **chi phí token đã bị chặn**. Quota upload nguyên tử + refund khi lỗi. ✓
+- **`/api/tts`:** text kẹp 500 ký tự, rate-limit 30/phút/IP, LRU cache 200. NHƯNG có lỗ hổng input (dưới).
+
+### 🟠 Bug thật — `?voice=` không validate, nhúng thẳng vào path URL gọi ElevenLabs
+`const VOICE_ID_FINAL = voiceOverride ?? VOICE_ID` rồi `fetch(\`.../text-to-speech/${VOICE_ID_FINAL}\`)`. `voiceOverride` lấy thô từ query. Client có `encodeURIComponent` nhưng **kẻ tấn công gọi trực tiếp** `/api/tts?voice=ID/stream` hoặc `?voice=ID?x=y` → server decode rồi nhúng raw vào path → **bẻ endpoint sang path khác của ElevenLabs mà vẫn dùng API key của ta** (SSRF nhẹ + có thể gọi endpoint đắt hơn / lạm phí). Voice id hợp lệ chỉ là chuỗi chữ-số (vd `EXAVITQu4vr4xnSDxMaL`).
+
+- **Fix:** thêm hàm THUẦN `safeVoiceId()` vào `sanitize.ts` — chỉ chấp nhận `^[A-Za-z0-9]{1,40}$`, sai → `""` để fallback voice mặc định. TTS route dùng `safeVoiceId(...)` thay regex inline. Mọi ký tự bẻ path (`/ ? # .. %`) đều bị loại.
+
+### Test (mới, +2) — `sanitize.test.ts`
+`safeVoiceId`: nhận 2 voice id thật (`EXAVITQu4vr4xnSDxMaL`, `21m00Tcm4TlvDq8ikWAM`); chặn `ID/stream`, `ID?x=y`, `../../secret`, `a%2Fb`, rỗng, undefined, số, >40 ký tự → `""`.
+
+### Verify
+- `tsc --noEmit`: **0 lỗi**. `npm test`: **246/246 PASS** (244 + 2). `eslint` (3 file): 0 error.
+- tts route + sanitize.ts + test sửa python write-through / append (mount đang đúng, theo [[mandomood-sandbox-workarounds]]).
+
+### Trạng thái
+Bịt SSRF nhẹ ở route TTS (input người dùng nhúng vào URL ngoài). Lớp lỗi injection-vào-URL mà tsc/test không bắt được. Vẫn chờ DEPLOY (push từ máy user — git sandbox corrupt index).
+
+---
+
+## Sprint 145 — 🟠 Kiểm tra admin LỆCH nhau giữa các route (lock-out tiềm ẩn) + gom 1 helper (2026-06-25)
+
+### Audit client effects/leak (sạch)
+- `addEventListener` ↔ `removeEventListener`: mọi file CÂN BẰNG (không leak listener).
+- `setInterval` (MatchGame, karaoke) đều có `clearInterval` trong cleanup. `setTimeout` tương tự.
+- Chia phần trăm render (VocabQuiz/MiniQuiz/challenge/dictation/daily-plan/DailyGoalRing/Pronunciation): đều có guard (`length===0 return null`, `items.length<4`, `validChars>0 ? : 0`, `length ? : 0`) → KHÔNG chia 0/NaN.
+- Security headers (vercel.json): có `X-Content-Type-Options`, `X-Frame-Options: DENY`, HSTS, Referrer-Policy, Permissions-Policy. (Ghi chú: `next.config.ts` có `typescript.ignoreBuildErrors:true` — footgun nhưng đã bù bằng `tsc --noEmit` trong `verify`; chưa lật vì rủi ro vỡ build.)
+
+### 🟠 Bug thật — kiểm tra quyền admin KHÔNG nhất quán giữa 4 route
+- `/api/admin/users` + `/export`: lowercase CẢ env LẪN email phiên → **case-insensitive**.
+- `/api/analytics` + `/feedback`: KHÔNG lowercase bên nào → **case-sensitive**.
+
+Email vốn không phân biệt hoa thường. Nếu `ADMIN_EMAILS` (hoặc email provider trả về) có chữ HOA, cùng một admin **vào được trang thống kê user nhưng bị 401 ở analytics/feedback** — phân quyền lệch, khó hiểu, dễ tưởng mất quyền. (Cũng có rủi ro ngược: cấu hình lệch giữa các trang.)
+
+- **Fix:** tạo `src/lib/adminAuth.ts` — NGUỒN CHÂN LÝ DUY NHẤT: `getAdminEmails()` (trim+lowercase+bỏ rỗng) và `isAdminEmail(email)` (so sánh không phân biệt hoa thường). Refactor cả **4 route** dùng `isAdminEmail(session?.user?.email)`; xoá 4 bản `const ADMIN_EMAILS` trùng lặp. analytics + feedback giờ case-insensitive như 2 route admin còn lại ⇒ hết lệch. Giữ đúng ngữ nghĩa `??`: env `undefined`→admin mặc định, `""`→[] (không tự ý bật lại admin cứng).
+
+### Test (mới, +5) — `adminAuth.test.ts`
+`getAdminEmails`: tách/trim/lowercase/bỏ rỗng; undefined→mặc định, ""→[]. `isAdminEmail`: khớp bất kể hoa/thường + có khoảng trắng; ngoài danh sách/rỗng/null/undefined→false; nhiều admin trong env.
+
+### Verify
+- `tsc --noEmit`: **0 lỗi**. `npm test`: **251/251 PASS** (246 + 5). `eslint` (6 file): 0 error.
+- adminAuth.ts + test tạo Write→outputs→`cp`; 4 route sửa python write-through (theo [[mandomood-sandbox-workarounds]]).
+
+### Trạng thái
+Phân quyền admin giờ NHẤT QUÁN (case-insensitive) ở mọi route + 1 nguồn chân lý chống drift về sau. Bug logic-phân-quyền tsc/test không bắt được. Vẫn chờ DEPLOY (push từ máy user — git sandbox corrupt index).
+
+---
+
+## Sprint 146 — 🟠 is_admin (gating UI admin) còn so case-SENSITIVE → khoá admin khỏi trang admin (2026-06-25)
+
+### Audit auth-config + XP/progress + portal (kết quả)
+- **signIn callback:** user mới → tạo + tặng 30 ngày trial; user cũ chưa từng trial & chưa premium → tặng nốt 1 lần; lỗi DB → vẫn cho đăng nhập (fail-open hợp lý). ✓
+- **NEXTAUTH_SECRET:** production THROW nếu thiếu (chống giả mạo JWT). ✓
+- **Stripe portal:** auth + `stripe_customer_id` scope theo session email + lazy Stripe; chưa mua → 404 NO_CUSTOMER. ✓
+
+### 🟠 Bug thật (nối tiếp Sprint 145) — `session.user.is_admin` vẫn so case-sensitive
+Sprint 145 đã sửa 4 ROUTE admin sang case-insensitive, NHƯNG `is_admin` trong `session` callback (`auth-config.ts`) vẫn dùng pattern cũ:
+```
+const adminEmails = (process.env.ADMIN_EMAILS ?? "...").split(",").map(e => e.trim());
+is_admin = adminEmails.includes(token.email)   // KHÔNG lowercase
+```
+`is_admin` GATE toàn bộ UI admin: `src/app/admin/layout.tsx` (chặn vào /admin/*) + `Navbar` (ẩn link admin). Hệ quả nếu `ADMIN_EMAILS` hoặc email provider có chữ HOA: **admin bị ẩn/khoá toàn bộ trang admin dù API (đã sửa) cho phép** → lệch client↔server, admin tưởng mất quyền.
+
+- **Fix:** `auth-config.ts` dùng `isAdminEmail(token.email)` (helper CHUNG Sprint 145). Giờ gating UI `is_admin` KHỚP authz route. Xoá bản `adminEmails` inline cuối cùng → mọi nơi kiểm tra admin đều qua 1 nguồn chân lý `adminAuth.ts`.
+
+### Verify
+- `tsc --noEmit`: **0 lỗi**. `npm test`: **251/251 PASS** (không đổi — helper đã có 5 test từ Sprint 145; auth-config là I/O không unit-test thuần). `eslint auth-config`: 0 error.
+- auth-config.ts sửa python write-through (theo [[mandomood-sandbox-workarounds]]).
+
+### Trạng thái
+Toàn bộ kiểm tra admin (4 route + is_admin gating UI) giờ NHẤT QUÁN case-insensitive qua 1 helper. Hoàn tất việc thống nhất phân quyền admin client↔server. Vẫn chờ DEPLOY (push từ máy user — git sandbox corrupt index).
+
+---
+
+## Sprint 147 — 🟠 STREAK tính theo giờ UTC ở server → học khuya VN có thể MẤT 1 ngày chuỗi (2026-06-25)
+
+### Audit progress/XP + community post (kết quả)
+- **`/api/user/progress` XP:** có `XP_CAP` theo action, clamp `min(max(0,floor(xp)),cap)`, NaN→0; XP ghi bằng `$inc` (nguyên tử, không mất khi gọi song song); thưởng mốc streak qua helper PURE chỉ 1 lần/ngày. ✓
+- **`/api/community/posts` POST:** auth + rate-limit 10/phút + kẹp dài (chinese 500, translation 1000). mood/level/type không validate enum nhưng chỉ là metadata hiển thị (React escape → không XSS) — chấp nhận được.
+
+### 🟠 Bug thật — ranh giới ngày của STREAK dùng giờ UTC (server) thay vì giờ VN
+`applyDailyStreak(lastActive, now, ...)` (PURE, đúng) so "cùng ngày / hôm qua" bằng field LOCAL (`getFullYear/Month/Date`). Nhưng route truyền `now = new Date()` = giờ **UTC** (Vercel chạy UTC). ⇒ ranh giới streak lật lúc **07:00 sáng VN**, không phải nửa đêm. Hệ quả thật: học buổi tối rồi học tiếp lúc 0–7h sáng VN hôm sau → server coi **cùng một ngày UTC** → streak KHÔNG +1, phiên học rạng sáng bị "phí"; ngược lại có thể đứt chuỗi oan. Streak là cơ chế giữ chân cốt lõi (đã sửa nhiều ở client theo giờ VN — nhưng SERVER vẫn UTC). Cùng lớp lỗi múi giờ với quota (Sprint 142).
+
+- **Fix:** thêm helper THUẦN `toVnTime(d)` = `+7h` (đọc field local trên server UTC ⇒ giờ tường VN; VN cố định UTC+7, không DST). Route truyền `toVnTime(lastActive)` + `toVnTime(now)` vào `applyDailyStreak` → so ngày theo giờ VN. `last_active` vẫn LƯU mốc UTC gốc (chỉ dịch khi SO SÁNH). `applyDailyStreak` giữ nguyên (pure, test cũ không đổi) — sửa tại call-site.
+
+### Test (mới, +1) — `premium.test.ts`
+`toVnTime`: chênh đúng +7h; `17:30Z → 2026-06-25T00:30Z` (qua ngày VN). 22 test streak/xpProgress cũ vẫn xanh (không đụng pure function).
+
+### Verify
+- `tsc --noEmit`: **0 lỗi**. `npm test`: **252/252 PASS** (251 + 1). `eslint` (3 file): 0 error.
+- premium.ts + progress route + test sửa python write-through (theo [[mandomood-sandbox-workarounds]]).
+
+### Ghi chú (còn 1 mục cùng lớp)
+`weekly_xp_reset` (`getNextMonday`) vẫn tính Monday 00:00 theo UTC = 07:00 thứ Hai VN — cùng lớp lệch giờ nhưng tác động nhỏ hơn (reset bảng tuần trễ 7h). Để lại cho vòng sau nếu cần. Vẫn chờ DEPLOY (push từ máy user — git sandbox corrupt index).
+
+---
+
+## Sprint 148 — 🟠 Reset XP TUẦN cũng lệch giờ UTC → bảng tuần đổi lúc 07:00 thứ Hai VN (2026-06-25)
+
+### Hoàn tất mục cùng lớp đã ghi ở Sprint 147
+`effectiveWeeklyXp` so mốc bằng timestamp tuyệt đối (độc lập timezone) → CHỖ DUY NHẤT lệch giờ là khi ĐẶT `weekly_xp_reset`: hàm `getNextMonday()` cũ trong route tính "thứ Hai 00:00" theo giờ server (UTC) ⇒ tuần reset lúc **07:00 thứ Hai VN**, không phải nửa đêm. Cùng gốc với streak (Sprint 147) & quota (Sprint 142).
+
+- **Fix:** thêm hàm THUẦN `nextMondayVN(now)` vào `weeklyXp.ts` — tính thứ Hai 00:00 theo GIỜ VN rồi trả instant UTC (dịch +7h đọc field UTC → độc lập timezone server; nửa đêm thứ Hai VN ⇔ 17:00 UTC chủ nhật). GIỮ NGUYÊN ngữ nghĩa cũ (đang là thứ Hai → mốc kế tiếp là +7 ngày). Route bỏ `getNextMonday` cục bộ, dùng `nextMondayVN(now)`.
+- Đối chiếu consumer: `effectiveWeeklyXp` (leaderboard tab Tuần + weekly-report) so tuyệt đối nên KHÔNG cần đổi — chỉ ranh giới đặt mốc dời về nửa đêm VN.
+
+### Test (mới, +3) — `weeklyXp.test.ts`
+`nextMondayVN`: ra thứ Hai 00:00 theo giờ VN + luôn ở tương lai + trong 7 ngày; từ chính mốc thứ Hai → +7 ngày (ngữ nghĩa cũ); nửa đêm thứ Hai VN = 17:00 UTC chủ nhật (đúng instant).
+
+### Verify
+- `tsc --noEmit`: **0 lỗi**. `npm test`: **255/255 PASS** (252 + 3). `eslint` (3 file): 0 error.
+- weeklyXp.ts + progress route + test sửa python write-through (theo [[mandomood-sandbox-workarounds]]).
+
+### Trạng thái
+Bộ ba ranh giới ngày/tuần phía server (streak Sprint 147, quota Sprint 142, **weekly reset Sprint 148**) giờ ĐỀU theo giờ VN — đồng nhất với client (lịch/mood/streak). Hết lệch múi giờ ở các mốc thời gian quan trọng. Vẫn chờ DEPLOY (push từ máy user — git sandbox corrupt index).
+
+---
+
+## Sprint 149 — 🔴 TÌM KIẾM hỏng: sai TÊN FIELD → search tiếng Trung KHÔNG ra kết quả (2026-06-25)
+
+### Audit models/indexes (kết quả)
+- **User:** `email { unique, lowercase }` → race tạo user mới khi đăng nhập song song bị chặn bởi unique index (an toàn); email lưu luôn lowercase ⇒ khớp `isAdminEmail` (Sprint 145). Index `xp/weekly_xp/streak_days` đủ cho leaderboard. ✓
+- **Quote/Lesson/Post:** index mood/level, created_at, like_count đủ. **KHÔNG có text index** trên Quote/Lesson.
+
+### 🔴 Bug thật — `/api/search` query SAI tên field (tính năng cốt lõi của app học tiếng Trung)
+Route thử `$text` trước (cần text index) rồi catch → regex fallback. NHƯNG:
+1. Model **KHÔNG định nghĩa text index** ⇒ `$text` **luôn ném lỗi** → mọi lần đều rơi xuống fallback (kèm 1 round-trip DB lỗi vô ích mỗi lần search).
+2. Fallback lại tìm field **KHÔNG TỒN TẠI** trên schema:
+   - Quote fallback: `{ chinese: }` (schema là `chinese_text`), `{ meaning: }` (Quote KHÔNG có `meaning`). ⇒ **tìm câu chữ Hán = 0 kết quả** (chỉ pinyin/translation/tags khớp).
+   - Lesson fallback: `{ title }`, `{ description }` (Lesson KHÔNG có `description`). ⇒ chỉ khớp title; bỏ sót chinese_text/translation/pinyin.
+
+Đây là lỗi tính năng nặng: người dùng gõ tiếng Trung vào ô tìm kiếm → KHÔNG thấy quote/bài học liên quan. tsc/test không bắt được (field sai chỉ là string trong query Mongo).
+
+- **Fix:** bỏ luôn nhánh `$text` chết (text index không có + tách từ Hán kém) → regex trực tiếp theo ĐÚNG field schema:
+  - Quote: `chinese_text`, `pinyin`, `translation`, `tags`.
+  - Lesson: `title`, `chinese_text`, `translation`, `pinyin`, `tags`.
+  regex đã được escape sẵn (chống ReDoS, Sprint trước). Bỏ luôn round-trip `$text` lỗi mỗi request.
+
+### Verify
+- `tsc --noEmit`: **0 lỗi**. `npm test`: **255/255 PASS** (không đổi — route I/O không unit-test thuần; logic field đã sửa theo schema thật). `eslint search`: 0 error.
+- search route sửa python write-through (theo [[mandomood-sandbox-workarounds]]).
+
+### Trạng thái
+Tìm kiếm giờ tra ĐÚNG field → gõ chữ Hán/pinyin/dịch/tag đều ra quote + bài học. Sửa một lỗi tính năng cốt lõi (search) vốn im lặng trả rỗng. Vẫn chờ DEPLOY (push từ máy user — git sandbox corrupt index).
+
+> Gợi ý nhỏ (không bắt buộc): nếu muốn search nhanh khi data lớn, thêm index thường cho `chinese_text` hoặc cân nhắc Atlas Search; hiện regex quét theo limit là đủ cho quy mô hiện tại.
+
+---
+
+## Sprint 150 — 🟠 getNextMonday BẢN THỨ HAI (UTC) trong User model → mốc tuần user mới lệch giờ (2026-06-25)
+
+### Quét field-name query ↔ schema (sau bug search Sprint 149)
+Đối chiếu các route query Mongo với tên field schema thật:
+- **vocabulary route:** `user_id`, `next_review`, `hanzi`, `pinyin`, `meaning` — KHỚP schema; có compound unique `(user_id,hanzi)` + index `(user_id,next_review)`. ✓
+- **leaderboard:** đọc `streak`, `test_best_pct`, `tests_taken`, `weekly_xp`, `weekly_xp_reset` — User schema CÓ ĐỦ (cả `streak` lẫn `streak_days`). ✓
+- ⇒ Không còn field-name mismatch như search.
+
+### 🟠 Bug thật — `weekly_xp_reset` default trong MODEL vẫn dùng getNextMonday() theo UTC
+Sprint 148 đã đổi route `/api/user/progress` sang `nextMondayVN` (nửa đêm thứ Hai VN). NHƯNG `src/models/User.ts` có **BẢN getNextMonday RIÊNG** (UTC) làm `default` cho `weekly_xp_reset`. Hệ quả: user MỚI tạo nhận mốc reset = thứ Hai 00:00 **UTC** (=07:00 VN), trong khi cập nhật sau đó lại theo **VN**. Lệch + đúng kiểu "2 bản logic trùng dễ drift" — chính nguyên nhân gây bug search Sprint 149.
+
+- **Fix:** xoá `getNextMonday()` cục bộ trong model, import + dùng `nextMondayVN()` (helper THUẦN đã test, Sprint 148) làm default. Giờ MỌI nơi đặt `weekly_xp_reset` (model default + route) đều dùng 1 nguồn chân lý → nửa đêm thứ Hai VN, không drift. (weeklyXp.ts thuần, không import model ⇒ không vòng lặp import.)
+
+### Verify
+- `tsc --noEmit`: **0 lỗi** (không có circular import). `npm test`: **255/255 PASS** (nextMondayVN đã có 3 test Sprint 148). `eslint`: 0 error.
+- User model sửa python write-through (theo [[mandomood-sandbox-workarounds]]).
+
+### Trạng thái
+Hết bản getNextMonday UTC trùng lặp. Mốc tuần của user mới + user cũ giờ đồng nhất theo giờ VN. Hoàn tất dọn lớp lỗi "logic ngày/giờ trùng lặp" (streak/quota/weekly + 2 bản getNextMonday). Vẫn chờ DEPLOY (push từ máy user — git sandbox corrupt index).
+
+---
+
+## Sprint 151 — 🟠 "Câu nói hôm nay" đổi lúc 07:00 VN (ranh giới UTC) thay vì nửa đêm (2026-06-25)
+
+### Audit route câu nói hôm nay (/api/quotes/daily)
+Logic vững (fallback static khi DB trống, guard null chống crash client, race chọn random vô hại). NHƯNG ranh giới "hôm nay" lệch giờ.
+
+### 🟠 Bug thật — ranh giới ngày của câu nói/nội dung-hôm-nay theo UTC
+`today.setHours(0,0,0,0)` (server local = UTC) cho cả: (1) truy vấn quote daily theo `daily_date` range, (2) lưu `daily_date`, (3) `dailyRotationIndex(now)` (đọc field local = UTC trên server) cho pool static. ⇒ **câu nói hôm nay đổi lúc 07:00 sáng VN**, không phải nửa đêm — lệch với streak/quota/weekly đã sửa. Người mở app khuya/sáng sớm thấy "câu hôm qua" tới 7h. (`dailyRotationIndex` PURE — chỉ server gọi; đúng ở client vì client chạy giờ VN.)
+
+- **Fix:** thêm helper THUẦN `vnDayStart(now)` (nửa đêm VN của ngày chứa now → instant UTC, độc lập timezone server) vào premium.ts. Route dùng `vnDayStart()` cho today (+24h ra tomorrow) và truyền `toVnTime(now)` vào `dailyRotationIndex` → xoay theo NGÀY VN. `dailyRotationIndex` giữ nguyên (sửa tại call-site, không phá test/usage client).
+- Lưu ý migrate: quote đã set với daily_date = nửa đêm UTC vẫn nằm trong khoảng VN-day mới (00:00Z ∈ [hôm trước 17:00Z, hôm nay 17:00Z)) → không chọn trùng/sót khi chuyển.
+
+### Test (mới, +2) — `premium.test.ts`
+`vnDayStart`: 09:00 VN ngày 25 → nửa đêm VN ngày 25 = 17:00Z ngày 24; 23:30 VN vẫn cùng ngày VN (không nhảy hôm sau).
+
+### Verify
+- `tsc --noEmit`: **0 lỗi**. `npm test`: **257/257 PASS** (255 + 2). `eslint` (3 file): 0 error.
+- premium.ts + daily route + test sửa python write-through (theo [[mandomood-sandbox-workarounds]]).
+
+### Trạng thái
+Toàn bộ ranh giới "ngày/tuần" phía server giờ theo giờ VN: streak (147), quota (142), weekly reset (148,150), **câu nói hôm nay (151)**. Nội dung-theo-ngày của app đồng nhất nửa đêm VN. Vẫn chờ DEPLOY (push từ máy user — git sandbox corrupt index).
+
+---
+
+## Sprint 152 — 🟠 "Mục tiêu hôm nay" (DailyGoalRing) đếm SAI XP: bỏ qua trần + thiếu bonus (2026-06-25)
+
+### Audit SRS (lặp lại ngắt quãng) — kết quả SẠCH
+- **`srs.ts` (SM-2):** đúng chuẩn (q<3 reset+hạ ease sàn 1.3; q≥3 giãn 1→6→×ease; EF không sinh NaN) — đã có 7 test.
+- **PATCH `/api/user/vocabulary`:** validate cardId (regex ObjectId), quality 0–5 + chặn NaN, card scope theo `user_id` (không IDOR), cập nhật đúng field + mastery. ✓
+- **cron due-reminder:** aggregate thẻ đến hạn `next_review ≤ now` (so tuyệt đối, đúng), chỉ nhắc user có sub + dọn sub chết 404/410. ✓
+- **flashcards page:** map nút → quality {5,4,2,0} hợp lệ; XP 3/thẻ + 5/phiên (dưới trần default 50). ✓
+
+### 🟠 Bug thật — `addTodayXP` ghi XP YÊU CẦU, không phải XP THỰC server cấp
+`useProgress.awardXP` gọi `addTodayXP(xp)` (lạc quan) ghi vào `mm_xp_<ngày>` — nguồn dữ liệu DUY NHẤT cho **DailyGoalRing ("Mục tiêu hôm nay" ở trang chủ)** + streak local. Nhưng server `/api/user/progress` CẮT xp theo `XP_CAP[action]` và CỘNG thêm bonus mốc streak. ⇒ vòng tròn mục tiêu hiển thị:
+- **Quá tay:** nếu client gửi xp > trần action → ring đếm dư (cap bị bỏ qua).
+- **Thiếu:** không bao giờ cộng bonus mốc streak (7/30/100 ngày) vào ring dù server đã cấp → user đạt mốc nhưng "mục tiêu hôm nay" không nhảy tương ứng.
+
+- **Fix:** sau khi server trả về, RECONCILE bằng phần chênh: `addTodayXP(result.xp_earned - xp)` (xp_earned = base sau cap + bonus). Làm cứng `addTodayXP`: bỏ qua giá trị không hữu hạn/0, `Math.max(0, prev+xp)` để reconcile trừ bớt không làm âm. An toàn vì **DailyGoalRing ĐỌC LẠI localStorage** khi nhận event `mm:xp` (không cộng dồn theo detail) → không nhân đôi.
+
+### Verify
+- `tsc --noEmit`: **0 lỗi**. `npm test`: **257/257 PASS** (hook I/O không unit-test thuần; logic reconcile đơn giản + đã rà ngữ nghĩa đọc-lại của DailyGoalRing). `eslint`: 0 error.
+- useProgress.ts sửa python write-through (theo [[mandomood-sandbox-workarounds]]).
+
+### Trạng thái
+"Mục tiêu hôm nay" giờ khớp XP server cấp (tôn trọng trần chống gian lận + phản ánh bonus streak). Vòng tròn động lực chính xác hơn. Vẫn chờ DEPLOY (push từ máy user — git sandbox corrupt index).
+
+---
+
+## Sprint 153 — 🟠 AI Tutor chat: messages KHÔNG kẹp + tin role lạ tiêm được "system" (2026-06-25)
+
+### Audit mergeSync + sync route + customDecks (SẠCH)
+- **mergeSync.ts:** union mọi nhánh, tombstone (words/decks/cards/stories/passages), xung đột thẻ giữ bản SRS xa hơn, sanitize + cap kích thước. Thiết kế "không bao giờ mất tiến độ" — rất chắc, đã test nhiều.
+- **/api/user/sync:** auth + rate-limit + body ≤256KB + sanitize 2 chiều + merge + cập nhật leaderboard (clamp 0–100, best-effort). ✓
+- **customDecks.ts:** SM-2 tái dùng, tombstone khi xóa, due sort đúng. ✓
+- **useDueCount/badge:** badge hiện "9+" cho >9 nên cap limit(50) vô hại. ✓
+
+### 🟠 Bug thật — route `/api/ai/chat` là route AI DUY NHẤT không kẹp input
+1. **Chi phí token vô hạn:** `messages` (mảng từ client) đưa THẲNG vào model (`...messages` cho OpenAI / join cho Gemini), KHÔNG kẹp số lượng lẫn độ dài tin. Khác mọi route AI khác (theme 120, scenario 200, analyzeText 3000). Người dùng (hoặc hội thoại rất dài) đẩy mảng khổng lồ → tốn token/tràn context/lạm phí.
+2. **Tiêm role "system" (leo thang prompt-injection):** client khai role `"user"|"assistant"` nhưng RUNTIME có thể gửi `{role:"system", content:"bỏ qua chỉ dẫn…"}` → lọt vào mảng `...messages` của OpenAI ở vai HỆ THỐNG → lái mô hình mạnh hơn injection thường.
+3. **persona lạ:** `PERSONA_PROMPTS[persona]` = undefined nếu persona client gửi sai → system prompt hỏng ("undefined").
+
+- **Fix (thêm vào sanitize.ts, thuần + test):**
+  - `sanitizeChatMessages(raw, max=30, len=2000)`: CHỈ giữ role user/assistant (loại system/tool → chặn tiêm), content phải string + cắt 2000 + bỏ rỗng, giữ **30 tin gần nhất** (đủ ngữ cảnh, chặn token).
+  - `safeTutorPersona(p)`: lạ → "caring_friend".
+  - Route dùng cả hai; thêm **hoàn quota** ở nhánh 400 (input rỗng) để free user không bị trừ oan lượt chat (quota trừ trước try).
+
+### Test (mới, +5) — `sanitize.test.ts`
+`safeTutorPersona` (hợp lệ/ lạ→mặc định); `sanitizeChatMessages` (loại role system/tool, cắt maxLen + bỏ rỗng/sai kiểu, giữ N gần nhất, non-array→[]).
+
+### Verify
+- `tsc --noEmit`: **0 lỗi**. `npm test`: **262/262 PASS** (257 + 5). `eslint` (3 file): 0 error.
+- sanitize.ts append + chat route python write-through + test (theo [[mandomood-sandbox-workarounds]]).
+
+### Trạng thái
+Route AI cuối cùng còn lọt input thô giờ đã kẹp + chống tiêm role system + hoàn quota đúng. MỌI route AI giờ đều vệ sinh đầu vào nhất quán. Vẫn chờ DEPLOY (push từ máy user — git sandbox corrupt index).
+
+---
+
+## Sprint 154 — 🟠 2 route AI còn lại (grade-answer, word-hint) cũng chưa kẹp input người dùng (2026-06-25)
+
+### Tiếp mạch "vệ sinh input AI" (sau chat Sprint 153)
+Quét nốt các route AI đưa text NGƯỜI DÙNG vào prompt:
+- **`/api/ai/grade-answer`:** `question`, `correctAnswer`, `userAnswer`, `context`, `questionType` nhúng THẲNG vào prompt (`gradeAnswer`) — KHÔNG kẹp độ dài.
+- **`/api/ai/word-hint`:** `selectedText`, `context`, `userGuess` đưa vào `getWordHint`/`checkGuess` — KHÔNG kẹp.
+
+⇒ Người dùng gửi text khổng lồ → tốn token/lạm phí (cùng lớp với chat). (story/chat/analyzeText đã kẹp; 2 route này sót.)
+
+- **Fix:** kẹp tại RANH GIỚI route bằng `sanitizePromptInput` (đã test — cắt độ dài + gom xuống dòng/ký tự điều khiển → giảm cả injection):
+  - grade-answer: questionType≤40, question/correctAnswer/context≤600, userAnswer≤1000.
+  - word-hint: selectedText≤200, userGuess≤200, context≤600.
+  Fallback exact-match ở catch của grade-answer vẫn dùng giá trị thô (không ảnh hưởng).
+
+### Verify
+- `tsc --noEmit`: **0 lỗi**. `npm test`: **262/262 PASS** (dùng lại `sanitizePromptInput` đã có 4+ test; không cần test mới). `eslint` (2 route): 0 error.
+- 2 route sửa python write-through (theo [[mandomood-sandbox-workarounds]]).
+
+### Trạng thái
+**TẤT CẢ route AI (story, chat, grade-answer, word-hint, analyze-upload) giờ đều kẹp input người dùng** trước khi nhúng prompt → chặn token vô hạn + giảm prompt-injection nhất quán. Vẫn chờ DEPLOY (push từ máy user — git sandbox corrupt index).
+
+---
+
+## Sprint 155 — 🟢 Analytics/sitemap SẠCH + robots chặn crawl trang tài khoản (SEO hygiene) (2026-06-25)
+
+### Audit ingest analytics công khai + SEO
+- **`POST /api/analytics`:** rate-limit 60/phút/IP, mọi field kẹp độ dài (name 60/path 200/anonId 64/utm 100), lỗi trả 200 (không làm client retry). `AnalyticsEvent` model có **TTL index 90 ngày** → DB không phình (hợp free tier Atlas 512MB). ✓
+- **`sitemap.ts`:** 42 route tĩnh — kiểm CHÉO: **mọi route đều có `page.tsx` thật** (không trỏ 404). + blog + trang chữ Hán (long-tail SEO, encodeURIComponent). Đối chiếu ngược: chỉ `/notifications` thiếu khỏi sitemap nhưng đó là trang tài khoản riêng tư (đúng khi loại). ⇒ phủ sitemap đầy đủ.
+
+### 🟢 Cải tiến — robots.txt chặn crawl trang TÀI KHOẢN riêng tư
+`robots.ts` mới disallow `/admin`, `/api/`, `/pricing/success`, `/onboarding` — nhưng còn cho crawl `/notifications`, `/profile` (cần đăng nhập, nội dung rỗng/redirect với bot). Google tốn crawl budget vào trang thin/redirect + có thể index nhầm trang đăng nhập.
+- **Fix:** thêm `/notifications`, `/profile` vào `disallow`. Đã kiểm: KHÔNG route nào trong sitemap bị chặn nhầm (giao = rỗng).
+
+### Verify
+- `tsc --noEmit`: **0 lỗi**. `npm test`: **262/262 PASS**. `eslint robots`: 0 error.
+- ⚠️ Edit tool làm mount cắt cụt robots.ts (lỗi đã biết [[mandomood-sandbox-workarounds]]) → đã ghi LẠI cả file qua bash heredoc (write-through) → tsc xanh.
+
+### Trạng thái
+Ingest analytics + SEO (sitemap/robots) xác nhận chắc; thêm chặn crawl trang tài khoản. Đây là sprint "xác nhận sạch + hygiene" — không có bug nặng mới ở vùng này. Vẫn chờ DEPLOY (push từ máy user — git sandbox corrupt index).
+
+---
+
+## Sprint 156 — 🔴 PATCH /api/lessons/[id]: KHÔNG auth + `$set: body` → ai cũng sửa/phá mọi bài học (2026-06-25)
+
+### Audit route bài học chi tiet
+- **GET `/api/lessons/[id]`:** validate `ObjectId.isValid` trước `findById` (không CastError), fallback theo slug, 404 đúng → client dùng DEMO_LESSONS. ✓
+
+### 🔴 Bug bảo mật NẶNG — PATCH không phân quyền + mass-assignment
+`PATCH /api/lessons/[id]` (1) **KHÔNG có auth check** nào và (2) `Lesson.findByIdAndUpdate(id, { $set: body })` ghi NGUYÊN body client. ⇒ **bất kỳ ai (ẩn danh)** cũng PATCH được mọi bài học công khai: sửa/ghi đè nội dung (title/chinese_text/translation…), bơm field rác, phá hoại nội dung cộng đồng. Đối chiếu: **KHÔNG client nào gọi PATCH này** (chỉ lesson page GET) → endpoint vừa vô dụng vừa nguy hiểm, để hở từ đầu.
+
+- **Fix:**
+  - **Bắt buộc admin:** thêm `getServerSession` + `isAdminEmail(session?.user?.email)` → không phải admin = 401.
+  - **Whitelist field (chống mass-assignment):** chỉ cho `$set` các field NỘI DUNG (`title, content_type, level, mood, chinese_text, pinyin, translation, grammar_notes, cultural_note, tags, audio_url, image_url`); KHÔNG cho đụng `view_count/save_count/is_ai_generated/_id`. Body rỗng field hợp lệ → 400.
+  - Giữ validate ObjectId + 404 như cũ.
+
+### Verify
+- `tsc --noEmit`: **0 lỗi**. `npm test`: **262/262 PASS**. `eslint`: 0 error.
+- Route ghi LẠI cả file qua bash heredoc (write-through — tránh mount-truncate khi đổi nhiều, theo [[mandomood-sandbox-workarounds]]).
+
+### Trạng thái
+Bịt lỗ hổng cho phép phá hoại/ghi đè nội dung bài học công khai bởi user ẩn danh (loại bug authz + mass-assignment, tsc/test không bắt được). Sau khi rà admin authz trước đó, đây là endpoint admin-mutation cuối cùng còn hở. Vẫn chờ DEPLOY (push từ máy user — git sandbox corrupt index).
+
+---
+
+## Sprint 157 — ✅ Quét TOÀN BỘ endpoint mutation (auth) + thêm rate-limit cho like (2026-06-25)
+
+### Quét hệ thống MỌI handler POST/PATCH/PUT/DELETE (sau bug lessons PATCH Sprint 156)
+Liệt kê 26 mutation handler + thế trận bảo vệ:
+- **Route AI** (story/chat/grade/word-hint/analyze-upload): `[none]+ratelimit` — CỐ Ý cho khách dùng thử (IP rate-limit + quota ngày). KHÔNG phải lỗ hổng.
+- **user/\*** (progress/sync/vocabulary/saved-quotes/voice/push-subscribe): session-scoped theo email. ✓
+- **community** (posts/comments): session + rate-limit. like: session (thiếu rate-limit — xem dưới).
+- **admin/cron/payment:** quotes POST + lessons POST (`x-admin-secret` fail-closed), push due-reminder (CRON_SECRET), push send (PUSH_ADMIN_SECRET), stripe webhook (chữ ký), analytics POST (công khai + rate-limit theo thiết kế). ✓
+- **lessons/[id] PATCH:** đã khoá admin ở Sprint 156. ✓
+⇒ KHÔNG còn endpoint mutation nào hở authz. (Bug lessons PATCH là cá biệt, đã vá.)
+
+### 🟢 Cải tiến — thêm rate-limit cho `POST /api/community/like`
+Đây là mutation community DUY NHẤT thiếu rate-limit (comments 20/phút, posts 10/phút đều có). Toggle like/unlike nhanh → spam request (atomic nên không hỏng dữ liệu, nhưng nên chặn cho đồng bộ).
+- **Fix:** `checkRateLimit(like:<email>, 40)` → 429 nếu vượt. 40/phút rộng rãi cho thao tác nhẹ.
+
+### Verify
+- `tsc --noEmit`: **0 lỗi**. `npm test`: **262/262 PASS**. `eslint like`: 0 error.
+- like route sửa python write-through (theo [[mandomood-sandbox-workarounds]]).
+
+### Trạng thái
+Xác nhận hệ thống: **mọi endpoint ghi dữ liệu đều có lớp bảo vệ đúng mức** (session / admin-secret / cron-secret / chữ ký / rate-limit+quota cho khách). like giờ cũng có rate-limit như anh em community. Vẫn chờ DEPLOY (push từ máy user — git sandbox corrupt index).
+
+---
+
+## Sprint 158 — ✅ Client render an toàn + làm cứng hình dạng AnalyzedContent (defense-in-depth) (2026-06-25)
+
+### Audit render client trên dữ liệu AI/API (SẠCH)
+Quét mọi `.map` trên field từ API/AI ở client:
+- **smart-lesson:** `data.vocabulary ?? []`, `data.exercises ?? []`, `ex.options` có guard `isMultiChoice && ex.options ?`, `result.errors` an toàn nhờ sanitizeGrade. ✓
+- **character/[hanzi]:** `if (!data) return <fallback/>` TRƯỚC mọi `data.x.map`; fallback HSK lite + thông báo. 29 HANZI_DATA khớp 29 CHARACTERS trong sitemap → trang trong sitemap không crash. ✓
+- **admin/analytics:** mọi `.map` bọc trong `{data && (...)}`. ✓
+- **PronunciationPractice:** `details` luôn là mảng (tính cục bộ), render có guard `result`. ✓
+⇒ KHÔNG có `.map` nào lọt guard → client không "màn hình trắng".
+
+### 🟢 Cải tiến (defense-in-depth) — `sanitizeAnalyzed` cho output AI smart-lesson
+`AnalyzedContent` (từ analyze-upload, cả ảnh lẫn text, cả OpenAI lẫn Gemini) là output AI DUY NHẤT chưa làm cứng hình dạng phía server (gradeAnswer đã có `sanitizeGrade` từ Sprint 140). Client hiện guard tốt, nhưng nếu sau này refactor bỏ guard → crash. Thêm chốt server:
+- `sanitizeAnalyzed(raw)`: vocabulary/exercises LUÔN là mảng (cap ≤20), ép chuỗi + kẹp dài mọi field, validate `type` bài tập (lạ→translate_to_viet) + `level` (mặc định hsk2), `options` ≤8, id thiếu→`ex<n>`.
+- Áp ở **3 điểm** route analyze-upload (ảnh + .txt + JSON body) → phủ mọi nhánh provider. Fallback cục bộ (`buildFallbackLesson`) vốn đã chuẩn, không cần.
+
+### Test (mới, +4) — `openai.test.ts`
+`sanitizeAnalyzed`: thiếu mảng→[] + level mặc định; ép kiểu vocab (số→""); type lạ→translate_to_viet + id thiếu→ex<n>; cap 20 vocab + 8 options.
+
+### Verify
+- `tsc --noEmit`: **0 lỗi**. `npm test`: **266/266 PASS** (262 + 4). `eslint` (3 file): 0 error.
+- openai.ts + route sửa python write-through (theo [[mandomood-sandbox-workarounds]]).
+
+### Trạng thái
+Render client xác nhận an toàn toàn diện; output AI smart-lesson giờ cũng được làm cứng hình dạng phía server (đồng bộ pattern sanitizeGrade). **MỌI output AI (story/grade/hint/analyzed) đều qua repair JSON + sanitize hình dạng.** Vẫn chờ DEPLOY (push từ máy user — git sandbox corrupt index).
+
+---
+
+## Sprint 159 — ✅ PWA/Service Worker SẠCH + thêm manifest `id` (giữ danh tính app khi cài) (2026-06-25)
+
+### Audit PWA (service worker + manifest + icons) — kết quả SẠCH
+- **`public/sw.js` (v7):** kiến trúc cache đúng chuẩn — static cache-first; public API (quotes/leaderboard) stale-while-revalidate; **API người dùng KHÔNG cache** (chống rò rỉ dữ liệu giữa tài khoản); navigation network-first + fallback `/offline`. Install dùng `allSettled` (1 URL lỗi không hỏng cài). Activate dọn cache cũ. Push + notificationclick (focus đúng cửa sổ thay vì mở tab mới — fix Sprint 114) chuẩn. ✓
+- **manifest:** name/short_name/display/theme + 3 icon (any + maskable) + 5 shortcut. Mọi icon (`icon-192/512`, favicon, apple-touch) + URL shortcut đều TỒN TẠI (kiểm chéo file). ✓
+
+### 🟢 Cải tiến — thêm `id: "/"` vào manifest (PWA best-practice)
+Manifest thiếu trường `id`. Chrome dùng `id` (KHÔNG dùng `start_url`) làm danh tính app đã cài. Nếu sau này đổi `start_url` mà không có `id` cố định → trình duyệt coi là APP MỚI → user mất bản đã cài (phải cài lại). Thêm `id: "/"` cố định danh tính ngay từ giờ.
+
+### Verify
+- `tsc --noEmit`: **0 lỗi**. `npm test`: **266/266 PASS**. `eslint manifest`: 0 error.
+- ⚠️ Edit tool lại làm mount cắt cụt manifest.ts → đã ghi LẠI cả file qua bash heredoc (write-through). [[mandomood-sandbox-workarounds]]
+
+### Trạng thái
+PWA/offline xác nhận chắc chắn. Sau ~19 vòng rà (route, lib, client, sync, SR, payment, auth, timezone, AI sanitize, SEO, PWA) — **codebase đã rất sạch, độ phủ test 266**. Bug nặng còn lại ≈ 0; các vòng gần đây chủ yếu là hardening/defense-in-depth + xác nhận sạch.
+
+> ⏳ **NÚT THẮT THỰC SỰ: DEPLOY.** ~18 fix (gồm nhiều bug bảo mật/đúng đắn thật: crash Gemini-only, lỗ hổng thanh toán, SSRF, authz lessons PATCH, search hỏng, chat injection, loạt timezone) đang nằm trong thư mục làm việc nhưng **CHƯA push** (git sandbox corrupt). Hành động giá trị nhất bây giờ là **bạn push từ máy + deploy + smoke test** theo `DEPLOY_READINESS.md`, hơn là rà thêm.
+
+---
+
+## Sprint 160 — 🟢 favMoods onboarding (bước BẮT BUỘC) trước đây KHÔNG dùng → cá nhân hoá feed (2026-06-25)
+
+### Audit onboarding + saved-quotes
+- **`/api/user/saved-quotes`:** auth + validate ObjectId + toggle nguyên tử ($addToSet/$pull) + chỉ đổi save_count khi modifiedCount>0 + clamp ≥0. ✓
+- **onboarding store:** `level/goal/dailyGoal` ĐƯỢC dùng ở daily-plan + lo-trinh + NextLesson (persist qua zustand `mandomood-storage`). ✓
+
+### 🟢 Bug/gap thật — `favMoods` thu thập (BẮT BUỘC) nhưng KHÔNG dùng ở đâu
+Onboarding step 2 ÉP user chọn ≥1 cảm xúc yêu thích (`canNext = step===2 ? favMoods.length>0`). Nhưng `onboarding.favMoods` KHÔNG được đọc ở bất kỳ logic nào (chỉ xuất hiện trong 1 comment ở daily-plan). ⇒ bắt user làm bước vô nghĩa; bỏ phí tín hiệu cá nhân hoá — ngược tinh thần app "học qua cảm xúc".
+- **Fix:** feed mặc định lọc theo cảm xúc yêu thích ĐẦU TIÊN khi user ĐÃ hoàn tất onboarding (`ob.completed && favMoods[0]`); user mới/chưa onboard vẫn thấy "tất cả" (gate `completed` để KHÔNG đổi mặc định cho mọi người — store default favMoods=["romantic","motivation"] kèm completed:false). Dùng lazy `useState` initializer đọc `useAppStore.getState()` (store đã rehydrate đồng bộ) → **chỉ 1 lần fetch** (không double-fetch như set ở useEffect). User vẫn đổi mood tự do.
+
+### Verify
+- `tsc --noEmit`: **0 lỗi**. `npm test`: **266/266 PASS**. `eslint feed`: 0 error (3 warning `set-state-in-effect` ở infinite-scroll là PRE-EXISTING, không phải từ thay đổi này).
+- feed sửa python write-through (theo [[mandomood-sandbox-workarounds]]).
+
+### Trạng thái
+Bước onboarding "cảm xúc yêu thích" giờ THỰC SỰ có tác dụng (cá nhân hoá feed) — đúng định hướng sản phẩm. Lưu ý: việc hiển thị mood theo persisted-state phụ thuộc rehydrate client (mismatch chip lọc nhẹ ở hydrate đầu — React tự reconcile, không crash; đánh đổi chấp nhận được cho cá nhân hoá). Vẫn chờ DEPLOY (push từ máy user — git sandbox corrupt).
+
+---
+
+## Sprint 161 — ✅ Quét nợ kỹ thuật ẩn (TODO/ts-ignore/console.log) = 0 + sửa comment lệch (2026-06-25)
+
+### Quét "nợ kỹ thuật tự khai báo" toàn repo
+- **TODO/FIXME/HACK/XXX:** **0** trong src (ngoài test). Không có công việc dở tự đánh dấu.
+- **@ts-ignore / @ts-expect-error / @ts-nocheck:** **0**. Không có lỗi type bị bịt miệng (tsc thực sự 0 lỗi, không phải nhờ suppress).
+- **console.log trong .tsx (client):** **0** → không rò log/noise ra console người dùng. (console.error/warn ở route là log lỗi server có chủ đích — giữ.)
+⇒ Codebase KHÔNG có nợ kỹ thuật ẩn — tín hiệu hoàn thiện mạnh.
+
+### 🟢 Sửa nhỏ — comment daily-plan lệch code (sau khi wire favMoods vào feed Sprint 160)
+daily-plan ghi "Cá nhân hóa theo onboarding (level + goal + dailyGoal + favMoods)" nhưng trực tiếp CHỈ dùng level+goal+dailyGoal; favMoods nay áp ở /feed (Sprint 160). Sửa comment cho khớp code (favMoods cá nhân hoá qua feed) → tránh hiểu nhầm khi bảo trì.
+
+### Verify
+- `tsc --noEmit`: **0 lỗi**. `npm test`: **266/266 PASS**. (chỉ sửa comment — không đổi hành vi.)
+- daily-plan sửa python write-through (theo [[mandomood-sandbox-workarounds]]).
+
+### Trạng thái — ĐÁNH GIÁ TỔNG SAU ~21 VÒNG RÀ
+Codebase **rất sạch & hoàn thiện**: 266 test, tsc/eslint 0 error, 0 nợ kỹ thuật ẩn, mọi endpoint ghi có authz/rate-limit, mọi output AI sanitize, mọi ranh giới ngày/tuần theo giờ VN, render client guard đầy đủ, PWA chuẩn. Các vòng gần đây chủ yếu hardening/hoàn thiện/xác nhận — **bug nặng mới ≈ 0**.
+
+> ⏳ **HÀNH ĐỘNG QUAN TRỌNG NHẤT VẪN LÀ DEPLOY.** Toàn bộ fix Sprint 112→161 đang ở thư mục làm việc, CHƯA push (git sandbox corrupt index). Khuyến nghị mạnh: **push từ máy → Vercel build/deploy → smoke test** theo `DEPLOY_READINESS.md`. Rà thêm hiện cho lợi ích cận biên; giá trị thật nằm ở việc đưa loạt fix (đặc biệt các lỗ hổng bảo mật) LÊN production.
+
+---
+
+## Sprint 162 — ✅ Audit karaoke (TTS/timer) sạch + VERIFY TOÀN DỰ ÁN trước deploy (2026-06-25)
+
+### Audit karaoke (đồng bộ lời + TTS — vùng dễ lỗi timing)
+- `stopAll()` HỦY `speechSynthesis.cancel()` + `clearInterval(gapTimer)` → gọi ở cleanup unmount (line 199) ⇒ rời trang KHÔNG còn đọc TTS lảm nhảm (lỗi kinh điển của speechSynthesis). Đổi track cũng stopAll + reset. Phím tắt effect deps đủ. ✓
+
+### VERIFY TOÀN BỘ src trước deploy (không chỉ file vừa sửa)
+- **`tsc --noEmit` toàn dự án:** **0 lỗi**.
+- **ESLint THEO TỪNG THƯ MỤC** (chia nhỏ tránh timeout sandbox):
+  - `src/lib`: 0 error (1 warning).
+  - `src/components`: 0 error (16 warning).
+  - `src/hooks`: 0 error (1 warning).
+  - `src/app/api`: 0 error.
+  - `src/app/*` pages (feed/generate/smart-lesson/karaoke/daily-plan/character/community/profile/flashcards/review): 0 error (35 warning).
+  - ⇒ **Toàn dự án: 0 ESLint ERROR**, chỉ warning (đa số `set-state-in-effect` pre-existing, vô hại).
+- **`npm test`:** **266/266 PASS** (0 fail, 0 skip).
+
+### Trạng thái
+Xác nhận TOÀN BỘ codebase xanh (tsc 0 / eslint 0 error / 266 test) — sẵn sàng deploy. Sau ~22 vòng (Sprint 112→162): không còn bug nặng; karaoke (vùng timing cuối chưa rà) cũng sạch.
+
+> ⏳ **DEPLOY là việc còn lại DUY NHẤT có giá trị lớn.** Mọi thay đổi đã verify xanh cùng nhau. Hành động: **push từ máy → Vercel deploy → smoke test** (`DEPLOY_READINESS.md`). Git sandbox corrupt index nên Claude không push được — bước này thuộc về user.

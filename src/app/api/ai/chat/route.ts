@@ -8,6 +8,7 @@ import { chatWithTutor, type TutorPersona, type StoryLevel } from "@/lib/openai"
 import { checkRateLimit, getRateLimitHeaders } from "@/lib/ratelimit";
 import { getPremiumStatus, consumeDailyQuota, refundDailyQuota } from "@/lib/premiumServer";
 import { FREE_DAILY_CHAT } from "@/lib/premium";
+import { sanitizeChatMessages, safeTutorPersona } from "@/lib/sanitize";
 
 export async function POST(req: NextRequest) {
   const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
@@ -39,21 +40,20 @@ export async function POST(req: NextRequest) {
   }
   try {
     const body = await req.json();
-    const {
-      messages,
-      persona = "caring_friend",
-      userLevel = "beginner",
-      scenario,
-    } = body as {
-      messages: { role: "user" | "assistant"; content: string }[];
-      persona: TutorPersona;
+    const { userLevel = "beginner", scenario } = body as {
       userLevel: StoryLevel;
       scenario?: string;
     };
 
-    if (!messages || messages.length === 0) {
-      return NextResponse.json({ error: "Messages không được rỗng" }, { status: 400 });
+    // Làm sạch input không tin cậy: kẹp số lượng/độ dài tin (chặn chi phí token vô
+    // hạn) + loại role lạ (chặn tiêm {role:"system"}); persona lạ → mặc định.
+    const messages = sanitizeChatMessages((body as { messages?: unknown }).messages);
+    if (messages.length === 0) {
+      // Đã trừ quota trước try → hoàn lại nếu input không hợp lệ (không phạt oan free user).
+      if (consumedQuota && email) await refundDailyQuota(email, "chat");
+      return NextResponse.json({ error: "Messages không hợp lệ" }, { status: 400 });
     }
+    const persona = safeTutorPersona((body as { persona?: unknown }).persona) as TutorPersona;
 
     const reply = await chatWithTutor(
       messages,

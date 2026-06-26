@@ -17,15 +17,8 @@ import { connectDB } from "@/lib/mongodb";
 import User from "@/models/User";
 import { levelFromXp } from "@/lib/levels";
 import { applyDailyStreak } from "@/lib/xpProgress";
-
-function getNextMonday(): Date {
-  const d = new Date();
-  const day = d.getDay();
-  const diff = day === 0 ? 1 : 8 - day;
-  d.setDate(d.getDate() + diff);
-  d.setHours(0, 0, 0, 0);
-  return d;
-}
+import { toVnTime } from "@/lib/premium";
+import { nextMondayVN } from "@/lib/weeklyXp";
 
 export async function POST(req: NextRequest) {
   try {
@@ -65,9 +58,12 @@ export async function POST(req: NextRequest) {
 
     // Streak + thưởng mốc qua helper PURE: thưởng CHỈ khi streak vừa tăng trong ngày
     // (tránh cộng lặp mỗi hành động cùng ngày → lạm phát XP).
+    // So sánh "ngày" theo GIỜ VN (toVnTime): server chạy UTC → nếu so ngày UTC,
+    // ranh giới streak lật lúc 07:00 VN, khiến học khuya (0–7h VN) bị tính nhầm
+    // ngày → có thể MẤT 1 ngày streak. Khớp với quota/lịch/mood đã theo giờ VN.
     const { streak: newStreak, bonusXp: bonusXP } = applyDailyStreak(
-      lastActive,
-      now,
+      toVnTime(lastActive),
+      toVnTime(now),
       user.streak_days ?? 0
     );
 
@@ -90,7 +86,7 @@ export async function POST(req: NextRequest) {
         last_active: now,
         level: newLevel,
         weekly_xp: newWeeklyXP,
-        ...(shouldResetWeekly ? { weekly_xp_reset: getNextMonday() } : {}),
+        ...(shouldResetWeekly ? { weekly_xp_reset: nextMondayVN(now) } : {}),
       },
     };
 

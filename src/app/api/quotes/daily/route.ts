@@ -8,6 +8,7 @@ import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
 import Quote from "@/models/Quote";
 import { dailyRotationIndex } from "@/lib/daily";
+import { toVnTime, vnDayStart } from "@/lib/premium";
 
 // ── Static fallback pool (xoay theo ngày) ─────────────────────────────────────
 const STATIC_QUOTES = [
@@ -135,10 +136,9 @@ const STATIC_QUOTES = [
 
 function getDailyStaticQuote() {
   const now = new Date();
-  const idx = dailyRotationIndex(now, STATIC_QUOTES.length);
+  const idx = dailyRotationIndex(toVnTime(now), STATIC_QUOTES.length);
   const q = STATIC_QUOTES[idx];
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  const today = vnDayStart(now);
   return {
     _id: `static_${idx}`,
     ...q,
@@ -156,10 +156,9 @@ export async function GET() {
   try {
     await connectDB();
 
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
+    // Ranh giới "hôm nay" theo GIỜ VN (đổi câu nói lúc nửa đêm VN, không phải 07:00).
+    const today = vnDayStart();
+    const tomorrow = new Date(today.getTime() + 24 * 3600 * 1000);
 
     // Tìm quote DB đã set làm daily hôm nay
     let dailyQuote = await Quote.findOne({

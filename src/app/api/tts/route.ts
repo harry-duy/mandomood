@@ -9,6 +9,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { checkRateLimit } from "@/lib/ratelimit";
+import { safeVoiceId } from "@/lib/sanitize";
 
 const ELEVENLABS_API_KEY = process.env.ELEVENLABS_API_KEY;
 // Bella — multilingual v2, giọng nữ tự nhiên, hỗ trợ Chinese
@@ -36,8 +37,12 @@ export async function GET(req: NextRequest) {
   }
 
   const text = req.nextUrl.searchParams.get("text")?.trim() ?? "";
-  const voiceOverride = req.nextUrl.searchParams.get("voice")?.trim();
-  const VOICE_ID_FINAL = voiceOverride ?? VOICE_ID;
+  // Voice id ElevenLabs là chuỗi CHỮ-SỐ (vd "EXAVITQu4vr4xnSDxMaL"). Phải validate
+  // server-side: giá trị này được NHÚNG THẲNG vào path URL gọi ElevenLabs, nên
+  // `?voice=ID/stream` hoặc `?voice=ID?x=y` (gọi trực tiếp, không qua client) có
+  // thể bẻ endpoint sang path khác mà vẫn dùng API key của ta (SSRF nhẹ + lạm phí).
+  const voiceOverride = safeVoiceId(req.nextUrl.searchParams.get("voice")?.trim());
+  const VOICE_ID_FINAL = voiceOverride || VOICE_ID;
 
   if (!text) {
     return NextResponse.json({ error: "text is required" }, { status: 400 });

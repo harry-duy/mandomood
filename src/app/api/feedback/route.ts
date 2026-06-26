@@ -8,10 +8,7 @@ import { authOptions } from "@/lib/auth-config";
 import { connectDB } from "@/lib/mongodb";
 import Feedback from "@/models/Feedback";
 import { checkRateLimit } from "@/lib/ratelimit";
-
-const ADMIN_EMAILS = (process.env.ADMIN_EMAILS ?? "ngothanhduy04@gmail.com")
-  .split(",")
-  .map(e => e.trim());
+import { isAdminEmail } from "@/lib/adminAuth";
 
 export async function POST(req: NextRequest) {
   const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
@@ -43,9 +40,7 @@ export async function GET(req: NextRequest) {
   // Kiểm tra session — chỉ admin email được phép
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const session = await (getServerSession as any)(authOptions) as { user?: { email?: string } } | null;
-  const email = session?.user?.email ?? "";
-
-  if (!email || !ADMIN_EMAILS.includes(email)) {
+  if (!isAdminEmail(session?.user?.email)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

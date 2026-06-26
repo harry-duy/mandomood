@@ -6,6 +6,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
 import Quote from "@/models/Quote";
+import { parsePagination } from "@/lib/pagination";
 
 export async function GET(req: NextRequest) {
   try {
@@ -14,9 +15,11 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const mood = searchParams.get("mood");
     const level = searchParams.get("level");
-    const page = parseInt(searchParams.get("page") ?? "1");
-    const limit = parseInt(searchParams.get("limit") ?? "10");
-    const skip = (page - 1) * limit;
+    // Kẹp page/limit (đã test): chặn limit=0 (Mongo trả TẤT CẢ quotes), NaN ("abc"),
+    // âm, quá lớn; và làm totalPages luôn hữu hạn (trước đây limit=0 → Infinity).
+    const { page, limit, skip } = parsePagination(
+      searchParams.get("page"), searchParams.get("limit"), { defaultLimit: 10, maxLimit: 50 }
+    );
 
     // Build query filter
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

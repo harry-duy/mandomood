@@ -7,7 +7,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-config";
 import { connectDB } from "@/lib/mongodb";
 import User from "@/models/User";
-import { premiumSource, daysLeft, FREE_DAILY_STORY, FREE_DAILY_CHAT, FREE_DAILY_UPLOAD } from "@/lib/premium";
+import { premiumSource, daysLeft, vnDateKey, FREE_DAILY_STORY, FREE_DAILY_CHAT, FREE_DAILY_UPLOAD } from "@/lib/premium";
 
 export const dynamic = "force-dynamic";
 
@@ -37,7 +37,7 @@ export async function GET() {
     if (!u) return NextResponse.json({ ...base, loggedIn: true });
 
     const source = premiumSource(u);
-    const today = new Date().toISOString().slice(0, 10);
+    const today = vnDateKey();
     const sameDay = u.ai_quota_date === today;
     return NextResponse.json({
       loggedIn: true,

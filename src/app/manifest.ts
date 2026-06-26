@@ -5,6 +5,9 @@ export default function manifest(): MetadataRoute.Manifest {
     name: "MandoMood — Học tiếng Trung qua cảm xúc",
     short_name: "MandoMood",
     description: "Học tiếng Trung qua câu chuyện, cảm xúc và cuộc sống thật.",
+    // id cố định: giữ ĐÚNG danh tính app dù start_url đổi sau này → user KHÔNG mất
+    // bản đã cài (Chrome dùng id, không dùng start_url, để nhận diện PWA).
+    id: "/",
     start_url: "/",
     display: "standalone",
     background_color: "#0D0D0D",

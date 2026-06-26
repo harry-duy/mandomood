@@ -9,6 +9,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getWordHint, checkGuess } from "@/lib/openai";
 import { checkRateLimit, getRateLimitHeaders } from "@/lib/ratelimit";
+import { sanitizePromptInput } from "@/lib/sanitize";
 
 export async function POST(req: NextRequest) {
   const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
@@ -37,12 +38,15 @@ export async function POST(req: NextRequest) {
 
     // Neu co guess: check xem dung khong
     if (userGuess !== undefined && userGuess.trim()) {
-      const result = await checkGuess(selectedText, userGuess);
+      const result = await checkGuess(sanitizePromptInput(selectedText, 200), sanitizePromptInput(userGuess, 200));
       return NextResponse.json({ success: true, mode: "check", ...result });
     }
 
     // Chua co guess: tra ve hint
-    const hint = await getWordHint(selectedText, body.context);
+    const hint = await getWordHint(
+      sanitizePromptInput(selectedText, 200),
+      body.context ? sanitizePromptInput(body.context, 600) : undefined
+    );
     return NextResponse.json({ success: true, mode: "hint", ...hint });
 
   } catch (error) {

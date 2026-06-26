@@ -6,7 +6,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { analyzeImageContent, analyzeTextContent } from "@/lib/openai";
+import { analyzeImageContent, analyzeTextContent, sanitizeAnalyzed } from "@/lib/openai";
 import { checkRateLimit, getRateLimitHeaders } from "@/lib/ratelimit";
 import { getPremiumStatus, consumeDailyQuota, refundDailyQuota } from "@/lib/premiumServer";
 import { FREE_DAILY_UPLOAD } from "@/lib/premium";
@@ -109,7 +109,7 @@ export async function POST(req: NextRequest) {
         // Image: convert to base64, send to GPT-4o Vision
         const bytes = await file.arrayBuffer();
         const base64 = Buffer.from(bytes).toString("base64");
-        const result = await analyzeImageContent(base64, mime);
+        const result = sanitizeAnalyzed(await analyzeImageContent(base64, mime));
         return NextResponse.json({ success: true, ...result });
 
       } else if (mime === "text/plain" || file.name.endsWith(".txt")) {
@@ -119,7 +119,7 @@ export async function POST(req: NextRequest) {
         if (!text.trim()) {
           return NextResponse.json({ error: "File rong" }, { status: 400 });
         }
-        const result = await analyzeTextContent(text);
+        const result = sanitizeAnalyzed(await analyzeTextContent(text));
         return NextResponse.json({ success: true, ...result });
 
       } else {
@@ -137,7 +137,7 @@ export async function POST(req: NextRequest) {
       if (!body.text?.trim()) {
         return NextResponse.json({ error: "Thiếu trường text" }, { status: 400 });
       }
-      const result = await analyzeTextContent(body.text);
+      const result = sanitizeAnalyzed(await analyzeTextContent(body.text));
       return NextResponse.json({ success: true, ...result });
     }
 

@@ -11,8 +11,64 @@ Vercel + MongoDB Atlas) và `PROGRESS_LOG.md` (chi tiết từng sprint).
 
 ## 0. Trạng thái build hiện tại
 - `tsc --noEmit`: **0 lỗi**
-- `npm test`: **230/230 PASS** (mọi lib logic thuần đều có test)
+- `npm test`: **266/266 PASS** (mọi lib logic thuần đều có test)
 - `eslint`: 0 error (chỉ vài warning `set-state-in-effect` pre-existing, vô hại)
+
+> 🟠 **(Sprint 153–154) Vệ sinh input MỌI route AI:** chat từng không kẹp + tiêm được
+> `{role:"system"}` → thêm `sanitizeChatMessages` + `safeTutorPersona` + hoàn quota khi
+> 400. grade-answer & word-hint cũng kẹp input qua `sanitizePromptInput`. Giờ story/chat/
+> grade/hint/upload đều chặn token vô hạn + giảm injection nhất quán.
+
+> 🟠 **(Sprint 151) "Câu nói hôm nay" theo giờ VN:** trước đổi lúc 07:00 VN (ranh
+> giới UTC). Đã thêm `vnDayStart` → đổi đúng nửa đêm VN, đồng bộ streak/quota/weekly.
+
+> 🟠 **(Sprint 152) DailyGoalRing đếm đúng XP:** "Mục tiêu hôm nay" từng ghi XP yêu
+> cầu (bỏ qua trần chống gian lận + thiếu bonus streak). Đã reconcile theo `xp_earned`
+> server thực cấp.
+
+> 🟢 **(Sprint 158) Làm cứng hình dạng AnalyzedContent:** output AI smart-lesson giờ
+> qua `sanitizeAnalyzed` server-side (mảng luôn hợp lệ, cap, validate type/level) →
+> client không crash kể cả khi model trả sai cấu trúc. Render client xác nhận an toàn.
+
+> 🔴 **(Sprint 156) Khoá PATCH /api/lessons/[id]:** trước KHÔNG auth + `$set: body`
+> → ai cũng sửa/phá mọi bài học công khai. Đã bắt buộc admin + whitelist field nội dung.
+
+> 🔴 **(Sprint 149) Sửa TÌM KIẾM hỏng:** `/api/search` query sai tên field
+> (`chinese`/`meaning`/`description` không tồn tại) → gõ tiếng Trung không ra kết quả.
+> Đã đổi sang đúng field schema (`chinese_text`, `pinyin`, `translation`, `tags`…).
+> Test sau deploy: gõ 1 câu chữ Hán ở ô search → phải có quote/bài học.
+
+> 🟠 **(Sprint 147–148, 150) Ranh giới ngày/tuần theo giờ VN:** streak VÀ `weekly_xp_reset`
+> từng tính theo UTC (server) → lật lúc 07:00 VN. Đã thêm `toVnTime` (streak) +
+> `nextMondayVN` (reset tuần, dùng CHUNG cho cả route lẫn default model) → đều theo
+> nửa đêm VN, đồng nhất với client; xoá 2 bản `getNextMonday` UTC trùng lặp.
+
+> 🟠 **(Sprint 145–146) Phân quyền admin nhất quán (route + UI):** analytics/feedback
+> từng so email case-SENSITIVE, và `is_admin` (gate toàn bộ UI /admin) cũng vậy →
+> admin có chữ HOA trong email bị 401/ẩn UI. Đã gom 1 helper `isAdminEmail`
+> (case-insensitive) cho cả 4 route + session callback.
+
+> 🟠 **(Sprint 144) Vá SSRF nhẹ ở TTS:** `?voice=` từng nhúng thẳng vào path URL
+> ElevenLabs → `?voice=ID/stream` bẻ được endpoint. Đã thêm `safeVoiceId` (chỉ
+> chữ-số ≤40) → sai thì fallback voice mặc định.
+
+> 🟠 **(Sprint 143) Kẹp phân trang 2 route public:** `/api/search` và `/api/quotes`
+> còn lọt `?limit=0` (Mongo trả TẤT CẢ) / `NaN` / quá lớn → đã chuyển sang helper
+> `parsePagination` (limit ∈ [1,max], totalPages hữu hạn).
+
+> 🟠 **(Sprint 142) Quota AI free reset đúng giờ VN:** trước đây chốt ngày bằng
+> UTC → reset lúc 07:00 sáng VN, lệch với streak/mood. Đã thêm `vnDateKey` (UTC+7)
+> cho consume/refund/hiển thị quota → reset đúng 00:00 VN.
+
+> 🔴 **(Sprint 141) Đã bịt lỗ hổng thanh toán:** server từng tin `priceId` client
+> gửi nhưng cấp quyền theo `plan` → user trả tiền gói THÁNG, gửi `plan:"yearly"`
+> để nhận nguyên NĂM. Đã **bind giá theo plan phía server** + validate plan. Thử
+> lại sau deploy: checkout từng gói, đối chiếu `premium_until` khớp tiền Stripe thu.
+
+> ✅ **(Sprint 140) Đã vá bug production-down:** trước đây nếu deploy **chỉ với
+> `GEMINI_API_KEY`** (không có `OPENAI_API_KEY`) thì client OpenAI dựng eager ở
+> top-level làm CRASH mọi route AI ngay khi import. Đã lazy-hoá → **cấu hình
+> Gemini-only giờ an toàn**. Kèm hardening parse JSON model + clamp điểm chấm AI.
 
 **Trước khi push, chạy lại trên máy bạn để chắc chắn:**
 ```bash

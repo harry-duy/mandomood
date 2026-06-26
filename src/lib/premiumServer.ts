@@ -8,7 +8,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-config";
 import { connectDB } from "@/lib/mongodb";
 import User from "@/models/User";
-import { premiumSource, type PremiumSource } from "@/lib/premium";
+import { premiumSource, vnDateKey, type PremiumSource } from "@/lib/premium";
 
 export interface PremiumStatus {
   email: string | null; // null = chưa đăng nhập
@@ -58,7 +58,7 @@ export async function consumeDailyQuota(
   max: number
 ): Promise<{ allowed: boolean; used: number; max: number }> {
   await connectDB();
-  const today = new Date().toISOString().slice(0, 10);
+  const today = vnDateKey();
   const col = QUOTA_COLS[field];
   const allCols = Object.values(QUOTA_COLS) as QuotaCol[];
 
@@ -105,7 +105,7 @@ export async function consumeDailyQuota(
 export async function refundDailyQuota(email: string, field: QuotaField): Promise<void> {
   try {
     await connectDB();
-    const today = new Date().toISOString().slice(0, 10);
+    const today = vnDateKey();
     const col = QUOTA_COLS[field];
     await User.updateOne(
       { email, ai_quota_date: today, [col]: { $gt: 0 } },

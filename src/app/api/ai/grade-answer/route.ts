@@ -7,6 +7,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { gradeAnswer } from "@/lib/openai";
 import { checkRateLimit, getRateLimitHeaders } from "@/lib/ratelimit";
+import { sanitizePromptInput } from "@/lib/sanitize";
 
 export async function POST(req: NextRequest) {
   const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
@@ -40,7 +41,15 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Câu trả lời rỗng" }, { status: 400 });
     }
 
-    const result = await gradeAnswer(questionType, question, correctAnswer, userAnswer, context);
+    // Kẹp độ dài input người dùng trước khi nhúng vào prompt AI (chặn token vô hạn
+    // + giảm injection bằng cách gom xuống dòng). Khớp cách story/chat đã làm.
+    const result = await gradeAnswer(
+      sanitizePromptInput(questionType, 40),
+      sanitizePromptInput(question, 600),
+      sanitizePromptInput(correctAnswer, 600),
+      sanitizePromptInput(userAnswer, 1000),
+      context ? sanitizePromptInput(context, 600) : undefined
+    );
     return NextResponse.json({ success: true, ...result });
 
   } catch (error) {

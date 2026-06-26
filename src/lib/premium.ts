@@ -10,6 +10,37 @@
 
 export const TRIAL_DAYS = 30;
 
+/**
+ * Khoá ngày YYYY-MM-DD theo GIỜ VIỆT NAM (UTC+7, không DST). Dùng cho ranh giới
+ * "mỗi ngày" phía SERVER (Vercel chạy UTC nên `new Date().toISOString()` reset
+ * lúc 07:00 VN — lệch với streak/mood/lịch vốn theo giờ VN). Quota AO free reset
+ * đúng 00:00 VN sau khi dùng hàm này.
+ */
+export function vnDateKey(d: Date = new Date()): string {
+  return new Date(d.getTime() + 7 * 3600 * 1000).toISOString().slice(0, 10);
+}
+
+/**
+ * CÙNG mốc thời gian nhưng dịch +7h — để khi đọc field LOCAL (getFullYear/Date…)
+ * trên server chạy UTC (Vercel) sẽ ra GIỜ TƯỜNG Việt Nam. Dùng khi cần so sánh
+ * "ngày" phía server theo giờ VN (vd streak), cho khớp lịch/mood/quota. KHÔNG
+ * dùng để LƯU (chỉ phục vụ so sánh ngày); lưu vẫn dùng mốc UTC gốc.
+ */
+export function toVnTime(d: Date): Date {
+  return new Date(d.getTime() + 7 * 3600 * 1000);
+}
+
+/**
+ * Mốc 00:00 (nửa đêm) theo GIỜ VIỆT NAM của ngày chứa `now`, trả về instant UTC.
+ * Dùng cho ranh giới "hôm nay" phía server (vd câu nói hôm nay) — để nội dung
+ * ngày đổi đúng nửa đêm VN thay vì 07:00 (server UTC). Độc lập timezone server.
+ */
+export function vnDayStart(now: Date = new Date()): Date {
+  const vn = new Date(now.getTime() + 7 * 3600 * 1000); // giờ tường VN qua field UTC
+  const midnightVnAsUtc = Date.UTC(vn.getUTCFullYear(), vn.getUTCMonth(), vn.getUTCDate(), 0, 0, 0, 0);
+  return new Date(midnightVnAsUtc - 7 * 3600 * 1000); // quy về instant UTC thật
+}
+
 /** Giới hạn mỗi ngày cho tài khoản FREE (hết trial, chưa mua). */
 export const FREE_DAILY_STORY = 3;
 export const FREE_DAILY_CHAT = 10;
@@ -66,6 +97,17 @@ export function daysLeft(until: Date | string | null | undefined, now: number = 
 /** Ngày hết trial cho tài khoản kích hoạt tại `now`. */
 export function trialEndDate(now: number = Date.now()): Date {
   return new Date(now + TRIAL_DAYS * 86_400_000);
+}
+
+/** Các gói hợp lệ DUY NHẤT được phép thanh toán. */
+export const VALID_PLANS = ["monthly", "yearly", "lifetime"] as const;
+export type Plan = (typeof VALID_PLANS)[number];
+
+/** Chuẩn hoá/kiểm tra gói từ client. Trả về plan hợp lệ hoặc null (chặn giá trị lạ). */
+export function normalizePlan(plan: unknown): Plan | null {
+  return typeof plan === "string" && (VALID_PLANS as readonly string[]).includes(plan)
+    ? (plan as Plan)
+    : null;
 }
 
 /**

@@ -27,3 +27,25 @@ export function effectiveWeeklyXp(
   // Mốc reset còn ở tương lai ⇒ weekly_xp thuộc tuần hiện tại; ngược lại là tuần cũ.
   return reset.getTime() > now.getTime() ? xp : 0;
 }
+
+
+/**
+ * Mốc reset XP tuần KẾ TIẾP = thứ Hai 00:00 theo GIỜ VIỆT NAM (UTC+7), trả về
+ * dưới dạng instant UTC. PURE, test được. Trước đây route tính Monday 00:00 theo
+ * giờ server (UTC) → reset lúc 07:00 thứ Hai VN, lệch nửa đêm VN như streak/quota.
+ * Giữ NGUYÊN ngữ nghĩa cũ: nếu HÔM NAY là thứ Hai thì mốc kế tiếp là thứ Hai TUẦN SAU.
+ */
+export function nextMondayVN(now: Date = new Date()): Date {
+  // Dịch sang giờ tường VN rồi đọc field UTC (độc lập timezone server).
+  const vn = new Date(now.getTime() + 7 * 3600 * 1000);
+  const day = vn.getUTCDay(); // 0=CN, 1=T2 … theo giờ VN
+  const diff = day === 0 ? 1 : 8 - day; // số ngày tới thứ Hai kế tiếp (T2→+7)
+  const vnMidnight = Date.UTC(
+    vn.getUTCFullYear(),
+    vn.getUTCMonth(),
+    vn.getUTCDate() + diff,
+    0, 0, 0, 0
+  );
+  // vnMidnight là "nửa đêm VN" biểu diễn bằng field UTC → trừ 7h ra instant UTC thật.
+  return new Date(vnMidnight - 7 * 3600 * 1000);
+}

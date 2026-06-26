@@ -14,6 +14,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-config";
 import { connectDB } from "@/lib/mongodb";
 import Post from "@/models/Post";
+import { checkRateLimit } from "@/lib/ratelimit";
 
 export async function POST(req: NextRequest) {
   try {
@@ -21,6 +22,14 @@ export async function POST(req: NextRequest) {
     const session = await (getServerSession as any)(authOptions);
     if (!session?.user?.email) {
       return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
+    }
+
+    // Chặn spam toggle like/unlike (đồng bộ với comments/posts vốn đã có rate-limit).
+    if (!checkRateLimit(`like:${session.user.email}`, 40)) {
+      return NextResponse.json(
+        { error: "Bạn thao tác quá nhanh. Thử lại sau 1 phút." },
+        { status: 429 }
+      );
     }
 
     const { postId } = await req.json() as { postId: string };

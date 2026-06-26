@@ -8,8 +8,12 @@ export default function robots(): MetadataRoute.Robots {
       {
         userAgent: "*",
         allow: "/",
-        // Khong cho index cac route rieng tu / khong can SEO
-        disallow: ["/admin", "/admin/", "/api/", "/pricing/success", "/onboarding"],
+        // Khong cho index cac route rieng tu / khong can SEO (gom ca trang tai khoan
+        // can dang nhap -> tranh Google ton crawl budget vao trang redirect/rong).
+        disallow: [
+          "/admin", "/admin/", "/api/", "/pricing/success", "/onboarding",
+          "/notifications", "/profile",
+        ],
       },
     ],
     sitemap: `${BASE_URL}/sitemap.xml`,

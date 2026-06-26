@@ -18,10 +18,11 @@ import { toast } from "sonner";
 /** Ghi XP kiếm được hôm nay vào localStorage để DailyGoalRing đọc offline */
 function addTodayXP(xp: number) {
   if (typeof localStorage === "undefined") return;
+  if (!Number.isFinite(xp) || xp === 0) return; // bỏ giá trị vô nghĩa / không đổi
   const now = new Date();
   const key = `mm_xp_${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
   const prev = readJSON<number>(key, 0);
-  writeJSON(key, prev + xp);
+  writeJSON(key, Math.max(0, prev + xp)); // không bao giờ âm khi reconcile trừ bớt
   // Báo cho DailyGoalRing (và widget khác) cập nhật ngay, không cần reload trang
   if (typeof window !== "undefined") {
     window.dispatchEvent(new CustomEvent("mm:xp", { detail: { xp } }));
@@ -100,6 +101,12 @@ export function useProgress() {
       if (!res.ok) throw new Error("API error");
 
       const result: AwardResult & { user: ProgressStats } = await res.json();
+
+      // Đồng bộ XP-hôm-nay (DailyGoalRing) theo SỐ THỰC server cấp: ban đầu đã cộng
+      // lạc quan `xp`; chỉnh phần chênh nếu server CẮT theo trần action hoặc CỘNG
+      // thêm bonus mốc streak. (DailyGoalRing đọc lại localStorage nên không nhân đôi.)
+      const actualEarned = Number.isFinite(result.xp_earned) ? result.xp_earned : xp;
+      if (actualEarned !== xp) addTodayXP(actualEarned - xp);
 
       // Update local state
       setStats({

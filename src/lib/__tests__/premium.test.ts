@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   isPaidActive, isTrialActive, premiumSource, hasPremiumAccess,
   daysLeft, trialEndDate, TRIAL_DAYS, premiumUntilForPlan,
+  normalizePlan, VALID_PLANS, vnDateKey, toVnTime, vnDayStart,
 } from "../premium";
 
 const NOW = Date.parse("2026-06-12T12:00:00Z");
@@ -66,4 +67,56 @@ test("premiumUntilForPlan: monthly +1 tháng, yearly +1 năm, lifetime null", ()
   assert.equal(unknown.getMonth(), (from.getMonth() + 1) % 12);
   // không đột biến tham số from
   assert.equal(from.toISOString(), "2026-06-16T00:00:00.000Z");
+});
+
+test("normalizePlan: chấp nhận đúng 3 gói hợp lệ", () => {
+  assert.equal(normalizePlan("monthly"), "monthly");
+  assert.equal(normalizePlan("yearly"), "yearly");
+  assert.equal(normalizePlan("lifetime"), "lifetime");
+  assert.deepEqual([...VALID_PLANS], ["monthly", "yearly", "lifetime"]);
+});
+
+test("normalizePlan: chặn giá trị lạ/sai kiểu → null (chống ép entitlement)", () => {
+  assert.equal(normalizePlan("free"), null);
+  assert.equal(normalizePlan("YEARLY"), null); // phân biệt hoa thường
+  assert.equal(normalizePlan(""), null);
+  assert.equal(normalizePlan(undefined), null);
+  assert.equal(normalizePlan(null), null);
+  assert.equal(normalizePlan(123), null);
+  assert.equal(normalizePlan({ plan: "yearly" }), null);
+});
+
+test("vnDateKey: trả ngày theo giờ VN (UTC+7), KHÔNG phải UTC", () => {
+  // 16:30 UTC 2026-06-24 = 23:30 VN cùng ngày
+  assert.equal(vnDateKey(new Date("2026-06-24T16:30:00Z")), "2026-06-24");
+  // 17:30 UTC 2026-06-24 = 00:30 VN ngày 25 → đã sang ngày mới ở VN
+  assert.equal(vnDateKey(new Date("2026-06-24T17:30:00Z")), "2026-06-25");
+  // 23:00 UTC = 06:00 VN hôm sau
+  assert.equal(vnDateKey(new Date("2026-06-24T23:00:00Z")), "2026-06-25");
+  // đầu ngày UTC vẫn là cùng ngày VN (07:00 VN)
+  assert.equal(vnDateKey(new Date("2026-06-25T00:00:00Z")), "2026-06-25");
+});
+
+test("toVnTime: dịch đúng +7h so với UTC (phục vụ so ngày streak theo giờ VN)", () => {
+  const utc = new Date("2026-06-24T17:30:00Z");
+  const vn = toVnTime(utc);
+  assert.equal(vn.getTime() - utc.getTime(), 7 * 3600 * 1000);
+  // 17:30 UTC + 7h = 00:30 hôm sau (đọc theo UTC field = giờ tường VN trên server UTC)
+  assert.equal(vn.toISOString(), "2026-06-25T00:30:00.000Z");
+});
+
+test("vnDayStart: trả nửa đêm VN của ngày chứa now (instant UTC = 17:00 hôm trước)", () => {
+  // 09:00 VN ngày 25 (=02:00Z ngày 25) → nửa đêm VN ngày 25 = 17:00Z ngày 24
+  const r = vnDayStart(new Date("2026-06-25T02:00:00Z"));
+  assert.equal(r.toISOString(), "2026-06-24T17:00:00.000Z");
+  // đọc theo giờ VN (UTC field của +7h) phải là 00:00 ngày 25
+  const rVN = new Date(r.getTime() + 7 * 3600 * 1000);
+  assert.equal(rVN.getUTCHours(), 0);
+  assert.equal(rVN.getUTCDate(), 25);
+});
+
+test("vnDayStart: 23:30 VN vẫn cùng ngày VN (không nhảy sang hôm sau)", () => {
+  // 23:30 VN ngày 24 = 16:30Z ngày 24 → nửa đêm VN ngày 24 = 17:00Z ngày 23
+  const r = vnDayStart(new Date("2026-06-24T16:30:00Z"));
+  assert.equal(r.toISOString(), "2026-06-23T17:00:00.000Z");
 });

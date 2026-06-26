@@ -5,13 +5,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-config";
+import { isAdminEmail } from "@/lib/adminAuth";
 import { connectDB } from "@/lib/mongodb";
 import AnalyticsEvent from "@/models/AnalyticsEvent";
 import { checkRateLimit } from "@/lib/ratelimit";
-
-const ADMIN_EMAILS = (process.env.ADMIN_EMAILS ?? "ngothanhduy04@gmail.com")
-  .split(",")
-  .map(e => e.trim());
 
 /** Các bước phễu chuyển đổi, theo thứ tự hành trình người dùng. */
 const FUNNEL_STEPS = [
@@ -58,8 +55,7 @@ export async function POST(req: NextRequest) {
 export async function GET(req: NextRequest) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const session = await (getServerSession as any)(authOptions) as { user?: { email?: string } } | null;
-  const email = session?.user?.email ?? "";
-  if (!email || !ADMIN_EMAILS.includes(email)) {
+  if (!isAdminEmail(session?.user?.email)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

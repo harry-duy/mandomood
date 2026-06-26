@@ -2,7 +2,8 @@
 
 /**
  * /daily-plan — Kế hoạch học hôm nay
- * Cá nhân hóa theo onboarding (level + goal + dailyGoal + favMoods).
+ * Cá nhân hóa theo onboarding (level + goal + dailyGoal). Cảm xúc yêu thích
+ * (favMoods) áp ở /feed (mặc định lọc theo mood yêu thích — xem feed/page.tsx).
  * Hiển thị checklist học + tip + link tới đúng công cụ.
  * Trạng thái lưu localStorage "mm_daily_plan_[date]" — reset mỗi ngày.
  */

@@ -5,11 +5,23 @@
 
 import OpenAI from "openai";
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
-
-export default openai;
+/**
+ * Khởi tạo client OpenAI LƯỜI (lazy): SDK v4 NÉM lỗi ngay trong constructor nếu
+ * thiếu OPENAI_API_KEY. Nếu khởi tạo ở top-level, một deploy CHỈ cấu hình
+ * GEMINI_API_KEY (được phép theo DEPLOY_READINESS) sẽ crash NGAY khi import
+ * "@/lib/openai" → mọi route AI (story, grade, chat, hint…) 500. Lazy hoá để
+ * import luôn an toàn; chỉ dựng client khi THỰC SỰ đi nhánh OpenAI (không có Gemini).
+ */
+let _openai: OpenAI | null = null;
+export function getOpenAI(): OpenAI {
+  if (!_openai) {
+    if (!process.env.OPENAI_API_KEY) {
+      throw new Error("OPENAI_API_KEY chưa được cấu hình (và không có GEMINI_API_KEY để fallback).");
+    }
+    _openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  }
+  return _openai;
+}
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const GEMINI_MODEL = process.env.GEMINI_MODEL ?? "gemini-2.5-flash";
@@ -57,28 +69,24 @@ async function generateGeminiText(
   return text;
 }
 
-async function generateGeminiJson<T>(
-  parts: GeminiPart[],
-  options: { temperature?: number; maxOutputTokens?: number } = {}
-): Promise<T> {
-  const jsonInstruction = {
-    text: "IMPORTANT: Your response must be ONLY a single valid JSON object. No markdown fences, no backticks, no explanations, no trailing text. Start with { and end with }. No trailing commas.",
-  };
-  const text = await generateGeminiText([...parts, jsonInstruction], { ...options, json: true });
-
-  // Strip markdown fences if present
-  const stripped = text
+/**
+ * Parse JSON từ output của model LLM — chịu được markdown fence, text thừa,
+ * dấu phẩy cuối (khi bị cắt ngắn). Dùng CHUNG cho cả Gemini lẫn OpenAI để 2
+ * đường đi cùng độ bền (trước đây chỉ Gemini có repair, OpenAI parse trần → 500
+ * khi model trả JSON hỏng/bị truncate ở max_tokens).
+ */
+export function repairModelJson<T>(raw: string): T {
+  const stripped = raw
     .replace(/^```(?:json)?\s*/i, "")
     .replace(/\s*```\s*$/, "")
     .trim();
 
-  // Try direct parse first
+  // Thử parse trực tiếp trước
   try {
     return JSON.parse(stripped) as T;
   } catch { /* fall through to repair */ }
 
-  // Extract first complete JSON object (non-greedy approach)
-  // Find the outermost { ... } by tracking brace depth
+  // Trích object { ... } ngoài cùng bằng cách đếm độ sâu ngoặc
   let depth = 0;
   let start = -1;
   let end = -1;
@@ -93,21 +101,30 @@ async function generateGeminiJson<T>(
   }
 
   if (start === -1 || end === -1) {
-    throw new Error(`Gemini returned no JSON object: ${stripped.slice(0, 200)}`);
+    throw new Error(`Model returned no JSON object: ${stripped.slice(0, 200)}`);
   }
 
-  const extracted = stripped.slice(start, end + 1);
-
-  // Repair: remove trailing commas before } or ]
-  const repaired = extracted
-    .replace(/,\s*([}\]])/g, "$1")
-    .replace(/([{,])\s*\n?\s*,/g, "$1"); // double commas
+  const repaired = stripped
+    .slice(start, end + 1)
+    .replace(/,\s*([}\]])/g, "$1")          // dấu phẩy cuối trước } hoặc ]
+    .replace(/([{,])\s*\n?\s*,/g, "$1");    // dấu phẩy đôi
 
   try {
     return JSON.parse(repaired) as T;
   } catch (e) {
-    throw new Error(`Gemini JSON parse failed: ${String(e)} | raw: ${stripped.slice(0, 300)}`);
+    throw new Error(`Model JSON parse failed: ${String(e)} | raw: ${stripped.slice(0, 300)}`);
   }
+}
+
+async function generateGeminiJson<T>(
+  parts: GeminiPart[],
+  options: { temperature?: number; maxOutputTokens?: number } = {}
+): Promise<T> {
+  const jsonInstruction = {
+    text: "IMPORTANT: Your response must be ONLY a single valid JSON object. No markdown fences, no backticks, no explanations, no trailing text. Start with { and end with }. No trailing commas.",
+  };
+  const text = await generateGeminiText([...parts, jsonInstruction], { ...options, json: true });
+  return repairModelJson<T>(text);
 }
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -179,7 +196,7 @@ Trả về JSON với format CHÍNH XÁC này:
     );
   }
 
-  const response = await openai.chat.completions.create({
+  const response = await getOpenAI().chat.completions.create({
     model: "gpt-4o-mini", // Rẻ hơn gpt-4o, đủ tốt cho task này
     messages: [{ role: "user", content: prompt }],
     response_format: { type: "json_object" },
@@ -190,11 +207,7 @@ Trả về JSON với format CHÍNH XÁC này:
   const content = response.choices[0].message.content;
   if (!content) throw new Error("OpenAI không trả về content");
 
-  try {
-    return JSON.parse(content) as GeneratedStory;
-  } catch {
-    throw new Error("OpenAI trả về JSON không hợp lệ: " + content.slice(0, 200));
-  }
+  return repairModelJson<GeneratedStory>(content);
 }
 
 // ─── AI Tutor Chat ────────────────────────────────────────────────────────────
@@ -262,7 +275,7 @@ Khi sửa lỗi, hãy giải thích TẠI SAO sai và đưa ra ví dụ đúng.
     );
   }
 
-  const response = await openai.chat.completions.create({
+  const response = await getOpenAI().chat.completions.create({
     model: "gpt-4o-mini",
     messages: [
       { role: "system", content: systemPrompt },
@@ -303,6 +316,60 @@ export interface AnalyzedContent {
   vocabulary: VocabItem[];
   exercises: Exercise[];
   cultural_notes: string;
+}
+
+const EXERCISE_TYPES = ["fill_blank", "translate_to_viet", "translate_to_chinese", "multiple_choice", "pinyin"];
+
+function clampStr(v: unknown, max: number): string {
+  return typeof v === "string" ? v.slice(0, max) : "";
+}
+
+/**
+ * Làm sạch HÌNH DẠNG nội dung AI phân tích trước khi trả cho client (phòng thủ
+ * tầng sâu giống sanitizeGrade): đảm bảo vocabulary/exercises LUÔN là mảng (đã
+ * cap), ép chuỗi + kẹp dài, validate type bài tập/level → client không bao giờ
+ * crash `.map`/nhận field rác kể cả khi model trả thiếu/sai cấu trúc.
+ */
+export function sanitizeAnalyzed(raw: AnalyzedContent): AnalyzedContent {
+  const r = (raw ?? {}) as Partial<AnalyzedContent>;
+  const vocabulary: VocabItem[] = Array.isArray(r.vocabulary)
+    ? r.vocabulary.slice(0, 20).map((v) => {
+        const x = (v ?? {}) as Partial<VocabItem>;
+        return {
+          hanzi: clampStr(x.hanzi, 50),
+          pinyin: clampStr(x.pinyin, 100),
+          meaning: clampStr(x.meaning, 300),
+          part_of_speech: clampStr(x.part_of_speech, 50),
+          example: clampStr(x.example, 300),
+          example_translation: clampStr(x.example_translation, 300),
+        };
+      })
+    : [];
+  const exercises: Exercise[] = Array.isArray(r.exercises)
+    ? r.exercises.slice(0, 20).map((e, i) => {
+        const x = (e ?? {}) as Partial<Exercise>;
+        const type = EXERCISE_TYPES.includes(x.type as string)
+          ? (x.type as Exercise["type"])
+          : "translate_to_viet";
+        return {
+          id: clampStr(x.id, 40) || `ex${i + 1}`,
+          type,
+          question: clampStr(x.question, 500),
+          answer: clampStr(x.answer, 500),
+          ...(Array.isArray(x.options) ? { options: x.options.slice(0, 8).map((op) => clampStr(op, 200)) } : {}),
+          ...(x.hint ? { hint: clampStr(x.hint, 300) } : {}),
+          ...(x.context ? { context: clampStr(x.context, 500) } : {}),
+        };
+      })
+    : [];
+  return {
+    detected_text: clampStr(r.detected_text, 4000),
+    level: clampStr(r.level, 20) || "hsk2",
+    summary: clampStr(r.summary, 1000),
+    vocabulary,
+    exercises,
+    cultural_notes: clampStr(r.cultural_notes, 1000),
+  };
 }
 
 export async function analyzeImageContent(base64: string, mimeType: string): Promise<AnalyzedContent> {
@@ -361,7 +428,7 @@ Trả về JSON CHÍNH XÁC:
     );
   }
 
-  const response = await openai.chat.completions.create({
+  const response = await getOpenAI().chat.completions.create({
     model: "gpt-4o",
     messages: [
       {
@@ -379,7 +446,7 @@ Trả về JSON CHÍNH XÁC:
 
   const content = response.choices[0].message.content;
   if (!content) throw new Error("GPT-4o Vision không trả về content");
-  return JSON.parse(content) as AnalyzedContent;
+  return repairModelJson<AnalyzedContent>(content);
 }
 
 export async function analyzeTextContent(text: string): Promise<AnalyzedContent> {
@@ -418,7 +485,7 @@ Trả về JSON CHÍNH XÁC:
     );
   }
 
-  const response = await openai.chat.completions.create({
+  const response = await getOpenAI().chat.completions.create({
     model: "gpt-4o-mini",
     messages: [{ role: "user", content: prompt }],
     response_format: { type: "json_object" },
@@ -428,7 +495,7 @@ Trả về JSON CHÍNH XÁC:
 
   const content = response.choices[0].message.content;
   if (!content) throw new Error("GPT-4o không trả về content");
-  return JSON.parse(content) as AnalyzedContent;
+  return repairModelJson<AnalyzedContent>(content);
 }
 
 // ─── Smart Grading ────────────────────────────────────────────────────────────
@@ -447,6 +514,23 @@ export interface GradeResult {
   errors: ErrorDetail[];
   feedback: string;
   suggestion: string;
+}
+
+/**
+ * Làm sạch kết quả chấm từ AI trước khi trả cho client: kẹp score về 0–100
+ * (AI có thể ảo giác score>100 hoặc NaN), ép kiểu các trường để UI không nhận
+ * dữ liệu rác. Tương tự cách làm cứng leaderboard.
+ */
+export function sanitizeGrade(g: GradeResult): GradeResult {
+  const rawScore = Number(g?.score);
+  const score = Number.isFinite(rawScore) ? Math.max(0, Math.min(100, Math.round(rawScore))) : 0;
+  return {
+    score,
+    correct: g?.correct === true,
+    errors: Array.isArray(g?.errors) ? g.errors : [],
+    feedback: typeof g?.feedback === "string" ? g.feedback : "",
+    suggestion: typeof g?.suggestion === "string" ? g.suggestion : "",
+  };
 }
 
 export async function gradeAnswer(
@@ -489,13 +573,15 @@ Trả về JSON:
 }`;
 
   if (GEMINI_API_KEY) {
-    return generateGeminiJson<GradeResult>(
-      [{ text: prompt }],
-      { temperature: 0.2, maxOutputTokens: 3000 }
+    return sanitizeGrade(
+      await generateGeminiJson<GradeResult>(
+        [{ text: prompt }],
+        { temperature: 0.2, maxOutputTokens: 3000 }
+      )
     );
   }
 
-  const response = await openai.chat.completions.create({
+  const response = await getOpenAI().chat.completions.create({
     model: "gpt-4o-mini",
     messages: [{ role: "user", content: prompt }],
     response_format: { type: "json_object" },
@@ -505,7 +591,7 @@ Trả về JSON:
 
   const content = response.choices[0].message.content;
   if (!content) throw new Error("GPT grade error");
-  return JSON.parse(content) as GradeResult;
+  return sanitizeGrade(repairModelJson<GradeResult>(content));
 }
 
 // ─── Word Hint (Text Selection) ───────────────────────────────────────────────
@@ -552,7 +638,7 @@ Trả về JSON:
     );
   }
 
-  const response = await openai.chat.completions.create({
+  const response = await getOpenAI().chat.completions.create({
     model: "gpt-4o-mini",
     messages: [{ role: "user", content: prompt }],
     response_format: { type: "json_object" },
@@ -562,7 +648,7 @@ Trả về JSON:
 
   const content = response.choices[0].message.content;
   if (!content) throw new Error("GPT hint error");
-  return JSON.parse(content) as WordHint;
+  return repairModelJson<WordHint>(content);
 }
 
 export async function checkGuess(
@@ -589,7 +675,7 @@ Trả về JSON:
     );
   }
 
-  const response = await openai.chat.completions.create({
+  const response = await getOpenAI().chat.completions.create({
     model: "gpt-4o-mini",
     messages: [{ role: "user", content: prompt }],
     response_format: { type: "json_object" },
@@ -599,5 +685,5 @@ Trả về JSON:
 
   const content = response.choices[0].message.content;
   if (!content) throw new Error("GPT check error");
-  return JSON.parse(content) as { correct: boolean; score: number; actual_meaning: string; feedback: string };
+  return repairModelJson<{ correct: boolean; score: number; actual_meaning: string; feedback: string }>(content);
 }

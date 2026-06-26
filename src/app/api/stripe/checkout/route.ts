@@ -7,8 +7,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-config";
+import { normalizePlan } from "@/lib/premium";
 
 const STRIPE_SECRET = process.env.STRIPE_SECRET_KEY;
+
+/**
+ * Giá ↔ gói CHỐT phía server. KHÔNG tin priceId từ client: price IDs là
+ * NEXT_PUBLIC (ai cũng biết cả 3) → trước đây client gửi plan="yearly" kèm
+ * priceId của gói THÁNG → trả tiền 1 tháng nhưng webhook cấp nguyên 1 NĂM
+ * (entitlement tính theo metadata.plan). Bind giá theo plan để bịt lỗ hổng.
+ */
+const PRICE_BY_PLAN: Record<string, string | undefined> = {
+  monthly: process.env.NEXT_PUBLIC_STRIPE_MONTHLY_PRICE_ID,
+  yearly: process.env.NEXT_PUBLIC_STRIPE_YEARLY_PRICE_ID,
+  lifetime: process.env.NEXT_PUBLIC_STRIPE_LIFETIME_PRICE_ID,
+};
 
 export async function POST(req: NextRequest) {
   if (!STRIPE_SECRET) {
@@ -24,11 +37,19 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
   }
 
-  const body = await req.json() as { priceId: string; plan: string };
-  const { priceId, plan } = body;
+  const body = await req.json() as { priceId?: string; plan?: string };
 
+  // Chỉ chấp nhận gói hợp lệ; lấy priceId TỪ SERVER (bỏ qua priceId client gửi).
+  const plan = normalizePlan(body.plan);
+  if (!plan) {
+    return NextResponse.json({ error: "Gói không hợp lệ" }, { status: 400 });
+  }
+  const priceId = PRICE_BY_PLAN[plan];
   if (!priceId) {
-    return NextResponse.json({ error: "Thiếu priceId" }, { status: 400 });
+    return NextResponse.json(
+      { error: "Gói chưa được cấu hình giá phía server." },
+      { status: 503 }
+    );
   }
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";

@@ -322,7 +322,15 @@ function FeaturedBanner({ lesson }: { lesson: Lesson }) {
 export default function FeedPage() {
   const [lessons, setLessons] = useState<Lesson[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedMood, setSelectedMood] = useState<string | null>(null);
+  // Cá nhân hoá feed: mặc định lọc theo cảm xúc yêu thích ĐẦU TIÊN user chọn ở
+  // onboarding (chỉ khi đã hoàn tất onboarding — user mới/chưa onboard vẫn thấy
+  // "tất cả"). Trước đây favMoods là bước onboarding BẮT BUỘC nhưng KHÔNG dùng ở
+  // đâu. Lazy initializer đọc store đã rehydrate → chỉ 1 lần fetch (không double).
+  const [selectedMood, setSelectedMood] = useState<string | null>(() => {
+    if (typeof window === "undefined") return null;
+    const ob = useAppStore.getState().onboarding;
+    return ob.completed && ob.favMoods && ob.favMoods.length > 0 ? ob.favMoods[0] : null;
+  });
   const [selectedLevel, setSelectedLevel] = useState<string | null>(null);
   const [selectedType, setSelectedType] = useState<string | null>(null);
   const [showFilters, setShowFilters] = useState(false);
